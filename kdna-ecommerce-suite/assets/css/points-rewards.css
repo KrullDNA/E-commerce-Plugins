@@ -3,8 +3,27 @@
     margin-bottom: 1em;
 }
 .kdna-redeem-form {
-    display: inline-block;
-    margin-left: 10px;
+    margin-top: 10px;
+}
+.kdna-partial-redeem {
+    margin: 10px 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+.kdna-partial-redeem label {
+    font-weight: 600;
+}
+.kdna-partial-redeem input[type="number"] {
+    width: 100px;
+}
+.kdna-partial-redeem .description {
+    color: #666;
+    font-size: 0.9em;
+}
+.kdna-redeem-form .button {
+    margin-top: 5px;
 }
 .kdna-points-table {
     margin-top: 1em;

@@ -46,3 +46,36 @@
 .kdna-toggle input:checked + .kdna-toggle-slider::before {
     transform: translateX(24px);
 }
+
+/* Conversion rate fields */
+.kdna-separator {
+    margin: 0 8px;
+    font-weight: 600;
+}
+
+/* Tooltip help icon */
+.kdna-tooltip {
+    color: #999;
+    cursor: help;
+    margin-left: 4px;
+    vertical-align: middle;
+    font-size: 16px;
+}
+.kdna-tooltip:hover {
+    color: #2271b1;
+}
+
+/* Spinner alignment */
+.kdna-ecommerce-wrap .spinner {
+    vertical-align: middle;
+}
+
+/* Points tab section spacing */
+.kdna-ecommerce-wrap h2 {
+    margin-top: 30px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #c3c4c7;
+}
+.kdna-ecommerce-wrap h2:first-of-type {
+    margin-top: 10px;
+}
