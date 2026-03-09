@@ -107,6 +107,12 @@ class KDNA_Ecommerce_Suite {
         if ( $this->is_module_active( 'reviews' ) ) {
             require_once KDNA_ECOMMERCE_PATH . 'elementor/class-kdna-reviews-widget.php';
             $widgets_manager->register( new KDNA_Reviews_Widget() );
+
+            require_once KDNA_ECOMMERCE_PATH . 'elementor/class-kdna-rating-summary-widget.php';
+            $widgets_manager->register( new KDNA_Rating_Summary_Widget() );
+
+            require_once KDNA_ECOMMERCE_PATH . 'elementor/class-kdna-review-form-widget.php';
+            $widgets_manager->register( new KDNA_Review_Form_Widget() );
         }
 
         if ( $this->is_module_active( 'related_products' ) ) {

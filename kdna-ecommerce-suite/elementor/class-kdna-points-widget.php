@@ -72,11 +72,35 @@ class KDNA_Points_Widget extends \Elementor\Widget_Base {
             'selectors' => [ '{{WRAPPER}} .kdna-points-widget-box strong' => 'color: {{VALUE}};' ],
         ]);
 
+        $this->add_control( 'border_style', [
+            'label'   => __( 'Border Style', 'kdna-ecommerce' ),
+            'type'    => \Elementor\Controls_Manager::SELECT,
+            'default' => 'solid',
+            'options' => [
+                'none'   => __( 'None', 'kdna-ecommerce' ),
+                'solid'  => __( 'Solid', 'kdna-ecommerce' ),
+                'dashed' => __( 'Dashed', 'kdna-ecommerce' ),
+                'dotted' => __( 'Dotted', 'kdna-ecommerce' ),
+                'double' => __( 'Double', 'kdna-ecommerce' ),
+            ],
+            'selectors' => [ '{{WRAPPER}} .kdna-points-widget-box' => 'border-style: {{VALUE}};' ],
+        ]);
+
+        $this->add_control( 'border_width', [
+            'label'      => __( 'Border Width', 'kdna-ecommerce' ),
+            'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+            'size_units' => [ 'px' ],
+            'default'    => [ 'top' => '1', 'right' => '1', 'bottom' => '1', 'left' => '1', 'unit' => 'px' ],
+            'selectors'  => [ '{{WRAPPER}} .kdna-points-widget-box' => 'border-width: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+            'condition'  => [ 'border_style!' => 'none' ],
+        ]);
+
         $this->add_control( 'border_color', [
             'label'     => __( 'Border Color', 'kdna-ecommerce' ),
             'type'      => \Elementor\Controls_Manager::COLOR,
             'default'   => '#e0dadf',
             'selectors' => [ '{{WRAPPER}} .kdna-points-widget-box' => 'border-color: {{VALUE}};' ],
+            'condition' => [ 'border_style!' => 'none' ],
         ]);
 
         $this->add_responsive_control( 'padding', [
@@ -175,7 +199,8 @@ class KDNA_Points_Widget extends \Elementor\Widget_Base {
             $message
         );
 
-        echo '<div class="kdna-points-widget-box" style="border:1px solid;display:flex;align-items:center;gap:8px;">';
+        // Use display:inline-flex so the box wraps to content size, not full width.
+        echo '<div class="kdna-points-widget-box" style="display:inline-flex;align-items:center;gap:8px;">';
         if ( $settings['show_icon'] === 'yes' ) {
             echo '<span class="kdna-points-icon">&#9733;</span>';
         }

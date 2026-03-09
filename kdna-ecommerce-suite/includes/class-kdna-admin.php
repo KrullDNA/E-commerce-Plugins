@@ -69,7 +69,36 @@ class KDNA_Admin {
             }
         }
 
-        return array_map( 'sanitize_text_field', $input );
+        // Fields that may contain HTML (messages with <strong>, <h4>, etc.).
+        $html_fields = [
+            'product_message', 'variable_product_message', 'cart_message',
+            'redeem_message', 'thankyou_message',
+        ];
+
+        // Review checkbox fields that default to 'no' when unchecked.
+        $review_checkboxes = [
+            'admins_can_reply', 'moderation', 'enable_reviews', 'verified_owner_label',
+            'verified_owners_only', 'enable_star_rating', 'star_rating_required',
+            'enable_photos', 'enable_videos', 'enable_voting', 'enable_flagging',
+            'enable_qualifiers',
+        ];
+        foreach ( $review_checkboxes as $field ) {
+            if ( ! isset( $input[ $field ] ) ) {
+                $input[ $field ] = 'no';
+            }
+        }
+
+        $output = [];
+        foreach ( $input as $key => $value ) {
+            if ( in_array( $key, $html_fields, true ) ) {
+                $output[ $key ] = wp_kses_post( $value );
+            } elseif ( is_array( $value ) ) {
+                $output[ $key ] = array_map( 'sanitize_text_field', $value );
+            } else {
+                $output[ $key ] = sanitize_text_field( $value );
+            }
+        }
+        return $output;
     }
 
     public function enqueue_assets( $hook ) {
@@ -455,14 +484,29 @@ class KDNA_Admin {
     private function render_reviews_tab( $modules ) {
         $settings = get_option( 'kdna_reviews_settings', [] );
         $defaults = [
-            'enable_photos'     => 'yes',
-            'enable_videos'     => 'yes',
-            'enable_voting'     => 'yes',
-            'enable_flagging'   => 'yes',
-            'enable_qualifiers' => 'no',
-            'qualifier_labels'  => '',
-            'max_attachments'   => '5',
-            'max_file_size'     => '5',
+            'contribution_types'         => 'all',
+            'specific_types'             => [],
+            'admins_can_reply'           => 'no',
+            'admin_badge'                => 'Admin',
+            'sorting_order'              => 'most_helpful',
+            'min_word_count'             => '',
+            'max_word_count'             => '',
+            'publication_threshold'      => '1',
+            'flagged_handling'           => 'keep_published',
+            'moderation'                 => 'yes',
+            'enable_reviews'             => 'yes',
+            'verified_owner_label'       => 'yes',
+            'verified_owners_only'       => 'yes',
+            'enable_star_rating'         => 'yes',
+            'star_rating_required'       => 'yes',
+            'enable_photos'              => 'yes',
+            'enable_videos'              => 'yes',
+            'enable_voting'              => 'yes',
+            'enable_flagging'            => 'yes',
+            'enable_qualifiers'          => 'no',
+            'qualifier_labels'           => '',
+            'max_attachments'            => '5',
+            'max_file_size'              => '5',
         ];
         $settings = wp_parse_args( $settings, $defaults );
         $active = ( $modules['reviews'] ?? 'no' ) === 'yes';
@@ -473,6 +517,146 @@ class KDNA_Admin {
             <?php if ( ! $active ) : ?>
                 <div class="notice notice-warning inline"><p><?php esc_html_e( 'This module is currently disabled. Enable it in the General tab.', 'kdna-ecommerce' ); ?></p></div>
             <?php endif; ?>
+
+            <h2><?php esc_html_e( 'Reviews', 'kdna-ecommerce' ); ?></h2>
+            <table class="form-table">
+                <tr>
+                    <th>
+                        <label for="contribution_types"><?php esc_html_e( 'Contributions types', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Choose which contribution types are enabled.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <select id="contribution_types" name="kdna_reviews_settings[contribution_types]">
+                            <option value="all" <?php selected( $settings['contribution_types'], 'all' ); ?>><?php esc_html_e( 'Enable all contribution types', 'kdna-ecommerce' ); ?></option>
+                            <option value="specific" <?php selected( $settings['contribution_types'], 'specific' ); ?>><?php esc_html_e( 'Enable specific contribution types only', 'kdna-ecommerce' ); ?></option>
+                        </select>
+                    </td>
+                </tr>
+                <tr id="kdna-specific-types-row" style="<?php echo $settings['contribution_types'] !== 'specific' ? 'display:none;' : ''; ?>">
+                    <th><label><?php esc_html_e( 'Specific contribution types', 'kdna-ecommerce' ); ?></label></th>
+                    <td>
+                        <?php
+                        $types = [ 'review' => 'Reviews', 'question' => 'Questions', 'photo' => 'Photos', 'video' => 'Videos' ];
+                        $specific = (array) ( $settings['specific_types'] ?? [] );
+                        foreach ( $types as $val => $label ) : ?>
+                        <label style="display:block;margin-bottom:4px;">
+                            <input type="checkbox" name="kdna_reviews_settings[specific_types][]" value="<?php echo esc_attr( $val ); ?>" <?php checked( in_array( $val, $specific, true ) ); ?>>
+                            <?php echo esc_html( $label ); ?>
+                        </label>
+                        <?php endforeach; ?>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Admins can always reply', 'kdna-ecommerce' ); ?></label></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="kdna_reviews_settings[admins_can_reply]" value="yes" <?php checked( $settings['admins_can_reply'], 'yes' ); ?>>
+                            <?php esc_html_e( 'Allow administrators and shop managers to leave replies to contributions', 'kdna-ecommerce' ); ?>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="admin_badge"><?php esc_html_e( 'Admin badges', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Text shown next to admin/shop manager names on their contributions.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="text" id="admin_badge" name="kdna_reviews_settings[admin_badge]" value="<?php echo esc_attr( $settings['admin_badge'] ); ?>" class="regular-text">
+                        <p class="description"><?php esc_html_e( 'Leave blank to disable badges.', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="sorting_order"><?php esc_html_e( 'Sorting order', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Default sort order for reviews on the frontend.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <select id="sorting_order" name="kdna_reviews_settings[sorting_order]">
+                            <option value="most_helpful" <?php selected( $settings['sorting_order'], 'most_helpful' ); ?>><?php esc_html_e( 'Most helpful first', 'kdna-ecommerce' ); ?></option>
+                            <option value="newest" <?php selected( $settings['sorting_order'], 'newest' ); ?>><?php esc_html_e( 'Newest first', 'kdna-ecommerce' ); ?></option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="min_word_count"><?php esc_html_e( 'Minimum word count', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Minimum number of words required for a review. Leave blank for no minimum.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="number" id="min_word_count" name="kdna_reviews_settings[min_word_count]" value="<?php echo esc_attr( $settings['min_word_count'] ); ?>" class="regular-text" min="0">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="max_word_count"><?php esc_html_e( 'Maximum word count', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Maximum number of words allowed for a review. Leave blank for no maximum.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="number" id="max_word_count" name="kdna_reviews_settings[max_word_count]" value="<?php echo esc_attr( $settings['max_word_count'] ); ?>" class="regular-text" min="0">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="publication_threshold"><?php esc_html_e( 'Threshold for publication', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Minimum number of contributions needed before they are publicly displayed.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="number" id="publication_threshold" name="kdna_reviews_settings[publication_threshold]" value="<?php echo esc_attr( $settings['publication_threshold'] ); ?>" class="regular-text" min="1">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="flagged_handling"><?php esc_html_e( 'Flagged contributions', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'What happens when a contribution is flagged.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <select id="flagged_handling" name="kdna_reviews_settings[flagged_handling]">
+                            <option value="keep_published" <?php selected( $settings['flagged_handling'], 'keep_published' ); ?>><?php esc_html_e( 'Keep published', 'kdna-ecommerce' ); ?></option>
+                            <option value="pending_customer" <?php selected( $settings['flagged_handling'], 'pending_customer' ); ?>><?php esc_html_e( 'Set to pending if flagged by customer', 'kdna-ecommerce' ); ?></option>
+                            <option value="pending_anyone" <?php selected( $settings['flagged_handling'], 'pending_anyone' ); ?>><?php esc_html_e( 'Set to pending if flagged by anyone', 'kdna-ecommerce' ); ?></option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Moderation', 'kdna-ecommerce' ); ?></label></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="kdna_reviews_settings[moderation]" value="yes" <?php checked( $settings['moderation'], 'yes' ); ?>>
+                            <?php esc_html_e( 'Contributions must be manually approved', 'kdna-ecommerce' ); ?>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Enable reviews', 'kdna-ecommerce' ); ?></label></th>
+                    <td>
+                        <label style="display:block;margin-bottom:4px;">
+                            <input type="checkbox" name="kdna_reviews_settings[enable_reviews]" value="yes" <?php checked( $settings['enable_reviews'], 'yes' ); ?>>
+                            <?php esc_html_e( 'Enable product reviews', 'kdna-ecommerce' ); ?>
+                        </label>
+                        <label style="display:block;margin-bottom:4px;">
+                            <input type="checkbox" name="kdna_reviews_settings[verified_owner_label]" value="yes" <?php checked( $settings['verified_owner_label'], 'yes' ); ?>>
+                            <?php esc_html_e( 'Show "verified owner" label on customer reviews', 'kdna-ecommerce' ); ?>
+                        </label>
+                        <label style="display:block;">
+                            <input type="checkbox" name="kdna_reviews_settings[verified_owners_only]" value="yes" <?php checked( $settings['verified_owners_only'], 'yes' ); ?>>
+                            <?php esc_html_e( 'Reviews can only be left by "verified owners"', 'kdna-ecommerce' ); ?>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th><label><?php esc_html_e( 'Product ratings', 'kdna-ecommerce' ); ?></label></th>
+                    <td>
+                        <label style="display:block;margin-bottom:4px;">
+                            <input type="checkbox" name="kdna_reviews_settings[enable_star_rating]" value="yes" <?php checked( $settings['enable_star_rating'], 'yes' ); ?>>
+                            <?php esc_html_e( 'Enable star rating on reviews', 'kdna-ecommerce' ); ?>
+                        </label>
+                        <label style="display:block;">
+                            <input type="checkbox" name="kdna_reviews_settings[star_rating_required]" value="yes" <?php checked( $settings['star_rating_required'], 'yes' ); ?>>
+                            <?php esc_html_e( 'Star ratings should be required, not optional', 'kdna-ecommerce' ); ?>
+                        </label>
+                    </td>
+                </tr>
+            </table>
 
             <h2><?php esc_html_e( 'Review Features', 'kdna-ecommerce' ); ?></h2>
             <table class="form-table">
@@ -544,6 +728,13 @@ class KDNA_Admin {
             </table>
             <?php submit_button(); ?>
         </form>
+        <script>
+        jQuery(function($) {
+            $('#contribution_types').on('change', function() {
+                $('#kdna-specific-types-row').toggle($(this).val() === 'specific');
+            });
+        });
+        </script>
         <?php
     }
 
