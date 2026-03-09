@@ -41,6 +41,14 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
             'default' => __( 'Add a Review', 'kdna-ecommerce' ),
         ]);
 
+        $this->add_control( 'form_subtitle', [
+            'label'       => __( 'Subheading', 'kdna-ecommerce' ),
+            'type'        => \Elementor\Controls_Manager::TEXTAREA,
+            'default'     => '',
+            'placeholder' => __( 'Share your experience with this product...', 'kdna-ecommerce' ),
+            'rows'        => 2,
+        ]);
+
         $this->add_control( 'show_rating', [
             'label'   => __( 'Show Star Rating', 'kdna-ecommerce' ),
             'type'    => \Elementor\Controls_Manager::SWITCHER,
@@ -126,6 +134,35 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
             'size_units' => [ 'px', 'em' ],
             'default'    => [ 'top' => '0', 'right' => '0', 'bottom' => '16', 'left' => '0', 'unit' => 'px', 'isLinked' => false ],
             'selectors'  => [ '{{WRAPPER}} .kdna-review-form-container .kdna-review-form-title' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}} !important;' ],
+        ]);
+
+        $this->end_controls_section();
+
+        // Style - Subheading
+        $this->start_controls_section( 'subtitle_style', [
+            'label'     => __( 'Subheading', 'kdna-ecommerce' ),
+            'tab'       => \Elementor\Controls_Manager::TAB_STYLE,
+            'condition' => [ 'form_subtitle!' => '' ],
+        ]);
+
+        $this->add_control( 'subtitle_color', [
+            'label'     => __( 'Color', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::COLOR,
+            'default'   => '#666',
+            'selectors' => [ '{{WRAPPER}} .kdna-review-form-container .kdna-review-form-subtitle' => 'color: {{VALUE}};' ],
+        ]);
+
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
+            'name'     => 'subtitle_typography',
+            'selector' => '{{WRAPPER}} .kdna-review-form-container .kdna-review-form-subtitle',
+        ]);
+
+        $this->add_responsive_control( 'subtitle_margin', [
+            'label'      => __( 'Margin', 'kdna-ecommerce' ),
+            'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+            'size_units' => [ 'px', 'em' ],
+            'default'    => [ 'top' => '0', 'right' => '0', 'bottom' => '20', 'left' => '0', 'unit' => 'px', 'isLinked' => false ],
+            'selectors'  => [ '{{WRAPPER}} .kdna-review-form-container .kdna-review-form-subtitle' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
         ]);
 
         $this->end_controls_section();
@@ -294,7 +331,10 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
         // NOTE: We use individual controls with !important instead of Group_Control_Typography
         // because themes often use high-specificity selectors on submit buttons that override
         // Elementor's generated CSS. Group controls don't support !important.
-        $btn_sel = '{{WRAPPER}} .kdna-review-form-container .form-submit input[type="submit"]';
+        // Use #respond in the selector chain for maximum specificity — WordPress comment_form()
+        // wraps in <div id="respond"> and themes target #respond input[type="submit"].
+        // For editor preview, also target .kdna-review-form-preview .form-submit input.
+        $btn_sel = '{{WRAPPER}} .kdna-review-form-container #respond .form-submit input[type="submit"], {{WRAPPER}} .kdna-review-form-container .kdna-review-form-preview .form-submit input[type="submit"]';
 
         $this->start_controls_section( 'button_style', [
             'label' => __( 'Submit Button', 'kdna-ecommerce' ),
@@ -400,6 +440,10 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
 
         if ( ! empty( $settings['form_title'] ) ) {
             echo '<h3 class="kdna-review-form-title">' . esc_html( $settings['form_title'] ) . '</h3>';
+        }
+
+        if ( ! empty( $settings['form_subtitle'] ) ) {
+            echo '<p class="kdna-review-form-subtitle">' . esc_html( $settings['form_subtitle'] ) . '</p>';
         }
 
         if ( $is_editor ) {

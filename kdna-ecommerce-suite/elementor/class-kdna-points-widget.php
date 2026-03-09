@@ -174,33 +174,52 @@ class KDNA_Points_Widget extends \Elementor\Widget_Base {
             $product = wc_get_product( get_the_ID() );
         }
 
+        $module_settings = $module->get_settings();
+        $is_variable = $product && $product->is_type( 'variable' );
+
         // Editor preview
         if ( \Elementor\Plugin::$instance->editor->is_edit_mode() ) {
-            $points = $product ? $module->get_points_for_product( $product ) : 50;
+            if ( $product && $is_variable ) {
+                $points = $module->get_max_points_for_variable( $product );
+            } elseif ( $product ) {
+                $points = $module->get_points_for_product( $product );
+            } else {
+                $points = 50;
+            }
             $label = $module->get_label( $points );
         } else {
             if ( ! $product || ! is_user_logged_in() ) {
                 return;
             }
-            $points = $module->get_points_for_product( $product );
+            if ( $is_variable ) {
+                $points = $module->get_max_points_for_variable( $product );
+            } else {
+                $points = $module->get_points_for_product( $product );
+            }
             if ( $points <= 0 ) {
                 return;
             }
             $label = $module->get_label( $points );
         }
 
-        $message = ! empty( $settings['custom_message'] )
-            ? $settings['custom_message']
-            : $module->get_settings()['product_message'];
+        // Choose the appropriate message template.
+        if ( ! empty( $settings['custom_message'] ) ) {
+            $message_template = $settings['custom_message'];
+        } elseif ( $is_variable ) {
+            $message_template = $module_settings['variable_product_message'];
+        } else {
+            $message_template = $module_settings['product_message'];
+        }
 
         $message = str_replace(
             [ '{points}', '{points_label}' ],
             [ $points, $label ],
-            $message
+            $message_template
         );
 
         // Use display:inline-flex so the box wraps to content size, not full width.
-        echo '<div class="kdna-points-widget-box" style="display:inline-flex;align-items:center;gap:8px;">';
+        // Add kdna-points-message class so the variable product JS can find and update it.
+        echo '<div class="kdna-points-widget-box kdna-points-message" style="display:inline-flex;align-items:center;gap:8px;">';
         if ( $settings['show_icon'] === 'yes' ) {
             echo '<span class="kdna-points-icon">&#9733;</span>';
         }
