@@ -7,66 +7,96 @@ class KDNA_Points_Rewards {
     private $points_table;
     private $log_table;
 
+    public static function get_default_settings() {
+        return [
+            // Conversion rates (new split format).
+            'earn_points'              => '1',
+            'earn_monetary'            => '1',
+            'redeem_points'            => '100',
+            'redeem_monetary'          => '1',
+            // Legacy ratio strings kept for backward compat.
+            'earn_ratio'               => '1:1',
+            'redeem_ratio'             => '100:1',
+            // Rounding.
+            'rounding_mode'            => 'round',
+            // Redemption options.
+            'partial_redemption'       => 'no',
+            'min_discount'             => '',
+            'max_discount'             => '',
+            'max_product_discount'     => '',
+            'tax_setting'              => 'inclusive',
+            // Labels.
+            'points_label_singular'    => 'Point',
+            'points_label_plural'      => 'Points',
+            // Expiry.
+            'expiry_period'            => '',
+            'expiry_unit'              => 'months',
+            'expiry_since_date'        => '',
+            // Action points.
+            'earn_account_signup'      => '0',
+            'earn_review'              => '0',
+            // Messages.
+            'product_message'          => '<h4 align="left">Purchase this product now and earn <strong>{points}</strong> {points_label}!</h4>',
+            'variable_product_message' => '<h4 align="left">Purchase this product now and earn up to <strong>{points}</strong> {points_label}!</h4>',
+            'cart_message'             => 'Complete your order and earn <strong>{points}</strong> {points_label} for a discount on a future purchase.',
+            'redeem_message'           => 'Use <strong>{points}</strong> {points_label} for a <strong>{points_value}</strong> discount on this order!',
+            'thankyou_message'         => 'You have earned <strong>{points}</strong> {points_label} for this order. You have a total of <strong>{total_points}</strong> {total_points_label}.',
+            // Advanced.
+            'delete_data_on_uninstall' => 'no',
+        ];
+    }
+
     public function __construct() {
         global $wpdb;
 
         $this->points_table = $wpdb->prefix . 'kdna_points';
         $this->log_table    = $wpdb->prefix . 'kdna_points_log';
 
-        $this->settings = wp_parse_args( get_option( 'kdna_points_settings', [] ), [
-            'earn_ratio'            => '1:1',
-            'redeem_ratio'          => '100:1',
-            'points_label_singular' => 'Point',
-            'points_label_plural'   => 'Points',
-            'earn_account_signup'   => '0',
-            'earn_review'           => '0',
-            'max_discount'          => '',
-            'max_discount_type'     => 'fixed',
-            'product_message'       => 'Earn <strong>{points}</strong> {points_label} by purchasing this product.',
-            'cart_message'          => 'Complete this order to earn <strong>{points}</strong> {points_label}.',
-            'redeem_message'        => 'Use <strong>{points}</strong> {points_label} for a <strong>{discount}</strong> discount.',
-            'expiry_period'         => '',
-        ]);
+        $this->settings = wp_parse_args( get_option( 'kdna_points_settings', [] ), self::get_default_settings() );
+
+        // Migrate legacy ratio strings to split fields if needed.
+        $this->maybe_migrate_ratios();
 
         $this->create_tables();
 
-        // Frontend hooks
+        // Frontend hooks.
         add_action( 'woocommerce_before_add_to_cart_form', [ $this, 'show_product_points_message' ] );
         add_action( 'woocommerce_before_cart', [ $this, 'show_cart_messages' ], 15 );
         add_action( 'woocommerce_before_checkout_form', [ $this, 'show_cart_messages' ], 5 );
         add_action( 'woocommerce_thankyou', [ $this, 'show_thankyou_message' ] );
 
-        // Points earning on order completion
+        // Points earning on order completion.
         add_action( 'woocommerce_order_status_completed', [ $this, 'award_points_for_order' ] );
         add_action( 'woocommerce_order_status_processing', [ $this, 'award_points_for_order' ] );
 
-        // Points reversal on cancel/refund
+        // Points reversal on cancel/refund.
         add_action( 'woocommerce_order_status_cancelled', [ $this, 'reverse_points_for_order' ] );
         add_action( 'woocommerce_order_status_refunded', [ $this, 'reverse_points_for_order' ] );
         add_action( 'woocommerce_order_partially_refunded', [ $this, 'handle_partial_refund' ], 10, 2 );
 
-        // Redeem points via cart
+        // Redeem points via cart.
         add_action( 'wp_loaded', [ $this, 'handle_redeem_action' ] );
+        add_action( 'wp_loaded', [ $this, 'handle_remove_redeem_action' ] );
         add_filter( 'woocommerce_get_shop_coupon_data', [ $this, 'get_virtual_coupon_data' ], 10, 2 );
         add_filter( 'woocommerce_cart_totals_coupon_label', [ $this, 'coupon_label' ], 10, 2 );
 
-        // Account signup points
+        // Account signup points.
         if ( (int) $this->settings['earn_account_signup'] > 0 ) {
             add_action( 'user_register', [ $this, 'award_signup_points' ] );
         }
 
-        // Review points
+        // Review points.
         if ( (int) $this->settings['earn_review'] > 0 ) {
             add_action( 'comment_post', [ $this, 'award_review_points' ], 10, 2 );
             add_action( 'comment_unapproved_to_approved', [ $this, 'award_review_points_on_approval' ] );
         }
 
-        // My Account endpoint
+        // My Account endpoint.
         add_action( 'init', [ $this, 'add_endpoint' ] );
         add_filter( 'woocommerce_account_menu_items', [ $this, 'add_menu_item' ] );
         add_action( 'woocommerce_account_kdna-points_endpoint', [ $this, 'render_my_points' ] );
 
-        // Points expiry cron
+        // Points expiry cron.
         if ( ! empty( $this->settings['expiry_period'] ) ) {
             add_action( 'kdna_points_expire_daily', [ $this, 'expire_points' ] );
             if ( ! wp_next_scheduled( 'kdna_points_expire_daily' ) ) {
@@ -74,8 +104,24 @@ class KDNA_Points_Rewards {
             }
         }
 
-        // Enqueue frontend assets
+        // AJAX: apply points to previous orders.
+        add_action( 'wp_ajax_kdna_apply_previous_orders', [ $this, 'ajax_apply_previous_orders' ] );
+
+        // Enqueue frontend assets.
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_assets' ] );
+    }
+
+    /**
+     * Migrate legacy "1:1" ratio strings to the new split earn_points / earn_monetary fields.
+     */
+    private function maybe_migrate_ratios() {
+        // If the new fields were explicitly saved, build ratio strings from them.
+        if ( isset( $this->settings['earn_points'] ) && $this->settings['earn_points'] !== '' ) {
+            $this->settings['earn_ratio'] = $this->settings['earn_points'] . ':' . $this->settings['earn_monetary'];
+        }
+        if ( isset( $this->settings['redeem_points'] ) && $this->settings['redeem_points'] !== '' ) {
+            $this->settings['redeem_ratio'] = $this->settings['redeem_points'] . ':' . $this->settings['redeem_monetary'];
+        }
     }
 
     private function create_tables() {
@@ -156,7 +202,7 @@ class KDNA_Points_Rewards {
 
         $remaining = $points;
 
-        // FIFO: drain oldest balances first
+        // FIFO: drain oldest balances first.
         $rows = $wpdb->get_results( $wpdb->prepare(
             "SELECT id, points_balance FROM {$this->points_table} WHERE user_id = %d AND points_balance > 0 ORDER BY date ASC",
             $user_id
@@ -197,7 +243,23 @@ class KDNA_Points_Rewards {
         if ( ! $ratio ) {
             return 0;
         }
-        return (int) round( (float) $amount * ( $ratio['points'] / $ratio['monetary'] ) );
+        $raw = (float) $amount * ( $ratio['points'] / $ratio['monetary'] );
+
+        return $this->round_points( $raw );
+    }
+
+    /**
+     * Round points according to the configured rounding mode.
+     */
+    private function round_points( $raw ) {
+        switch ( $this->settings['rounding_mode'] ) {
+            case 'floor':
+                return (int) floor( $raw );
+            case 'ceil':
+                return (int) ceil( $raw );
+            default:
+                return (int) round( $raw );
+        }
     }
 
     public function calculate_points_value( $points ) {
@@ -226,12 +288,41 @@ class KDNA_Points_Rewards {
 
     // ─── Order Points ───
 
+    /**
+     * Get the price to calculate points from, respecting tax setting.
+     */
+    private function get_product_price_for_points( $product ) {
+        if ( $this->settings['tax_setting'] === 'exclusive' ) {
+            return (float) wc_get_price_excluding_tax( $product );
+        }
+        return (float) wc_get_price_including_tax( $product );
+    }
+
     public function get_points_for_product( $product ) {
         $product_points = $product->get_meta( '_kdna_points_earned' );
         if ( $product_points !== '' && $product_points !== false ) {
             return (int) $product_points;
         }
-        return $this->calculate_points( (float) $product->get_price() );
+        return $this->calculate_points( $this->get_product_price_for_points( $product ) );
+    }
+
+    /**
+     * For variable products, get the maximum points across all variations.
+     */
+    public function get_max_points_for_variable( $product ) {
+        if ( ! $product->is_type( 'variable' ) ) {
+            return $this->get_points_for_product( $product );
+        }
+
+        $max = 0;
+        $variations = $product->get_children();
+        foreach ( $variations as $variation_id ) {
+            $variation = wc_get_product( $variation_id );
+            if ( $variation ) {
+                $max = max( $max, $this->get_points_for_product( $variation ) );
+            }
+        }
+        return $max;
     }
 
     public function get_points_for_cart() {
@@ -257,7 +348,7 @@ class KDNA_Points_Rewards {
             }
         }
 
-        // Subtract points equivalent of discount
+        // Subtract points equivalent of discount.
         $discount_total = (float) $order->get_discount_total();
         if ( $discount_total > 0 ) {
             $discount_points = $this->calculate_points( $discount_total );
@@ -278,14 +369,14 @@ class KDNA_Points_Rewards {
             return;
         }
 
-        // Reverse earned points
+        // Reverse earned points.
         $earned = (int) $order->get_meta( '_kdna_points_earned' );
         if ( $earned > 0 ) {
             $this->decrease_points( $order->get_user_id(), $earned, 'order-cancelled', $order_id );
             $order->delete_meta_data( '_kdna_points_earned' );
         }
 
-        // Credit back redeemed points
+        // Credit back redeemed points.
         $redeemed = (int) $order->get_meta( '_kdna_points_redeemed' );
         if ( $redeemed > 0 ) {
             $this->increase_points( $order->get_user_id(), $redeemed, 'order-cancelled', $order_id );
@@ -312,6 +403,20 @@ class KDNA_Points_Rewards {
 
     // ─── Discount / Redemption ───
 
+    /**
+     * Parse the max discount setting, which can be a fixed amount or percentage (e.g. "50" or "50%").
+     */
+    private function parse_discount_limit( $value, $base_amount ) {
+        if ( empty( $value ) ) {
+            return $base_amount;
+        }
+        $value = trim( $value );
+        if ( substr( $value, -1 ) === '%' ) {
+            return $base_amount * ( (float) rtrim( $value, '%' ) / 100 );
+        }
+        return (float) $value;
+    }
+
     public function handle_redeem_action() {
         if ( ! isset( $_POST['kdna_redeem_points'] ) || ! is_user_logged_in() ) {
             return;
@@ -321,7 +426,20 @@ class KDNA_Points_Rewards {
 
         $user_id = get_current_user_id();
         $available_points = $this->get_user_points( $user_id );
-        $available_discount = $this->calculate_points_value( $available_points );
+        $subtotal = (float) WC()->cart->get_subtotal();
+
+        // If partial redemption is enabled, use the user-supplied amount.
+        if ( $this->settings['partial_redemption'] === 'yes' && isset( $_POST['kdna_redeem_points_amount'] ) ) {
+            $requested_points = absint( $_POST['kdna_redeem_points_amount'] );
+            if ( $requested_points <= 0 ) {
+                wc_add_notice( __( 'Please enter a valid number of points to redeem.', 'kdna-ecommerce' ), 'error' );
+                return;
+            }
+            $requested_points = min( $requested_points, $available_points );
+            $available_discount = $this->calculate_points_value( $requested_points );
+        } else {
+            $available_discount = $this->calculate_points_value( $available_points );
+        }
 
         if ( $available_discount <= 0 ) {
             wc_add_notice( __( 'You do not have enough points to redeem.', 'kdna-ecommerce' ), 'error' );
@@ -330,6 +448,22 @@ class KDNA_Points_Rewards {
 
         $max_discount = $this->get_max_cart_discount();
         $discount = min( $available_discount, $max_discount );
+
+        // Enforce minimum discount.
+        if ( ! empty( $this->settings['min_discount'] ) ) {
+            $min = (float) $this->settings['min_discount'];
+            if ( $discount < $min ) {
+                wc_add_notice(
+                    sprintf(
+                        /* translators: %s is the minimum discount amount */
+                        __( 'The minimum points discount is %s.', 'kdna-ecommerce' ),
+                        wc_price( $min )
+                    ),
+                    'error'
+                );
+                return;
+            }
+        }
 
         if ( $discount <= 0 ) {
             return;
@@ -343,17 +477,33 @@ class KDNA_Points_Rewards {
         WC()->cart->add_discount( $code );
     }
 
+    /**
+     * Handle removing a points discount.
+     */
+    public function handle_remove_redeem_action() {
+        if ( ! isset( $_GET['kdna_remove_points'] ) || ! is_user_logged_in() ) {
+            return;
+        }
+
+        if ( ! wp_verify_nonce( $_GET['_wpnonce'] ?? '', 'kdna-remove-points' ) ) {
+            return;
+        }
+
+        $session_code = WC()->session ? WC()->session->get( 'kdna_points_coupon' ) : '';
+        if ( $session_code ) {
+            WC()->cart->remove_coupon( $session_code );
+            WC()->session->set( 'kdna_points_coupon', '' );
+            WC()->session->set( 'kdna_points_discount', 0 );
+            WC()->session->set( 'kdna_points_to_deduct', 0 );
+        }
+    }
+
     private function get_max_cart_discount() {
         $subtotal = (float) WC()->cart->get_subtotal();
         $max = $subtotal;
 
         if ( ! empty( $this->settings['max_discount'] ) ) {
-            $val = $this->settings['max_discount'];
-            if ( $this->settings['max_discount_type'] === 'percentage' ) {
-                $max = $subtotal * ( (float) $val / 100 );
-            } else {
-                $max = (float) $val;
-            }
+            $max = $this->parse_discount_limit( $this->settings['max_discount'], $subtotal );
         }
 
         return min( $max, $subtotal );
@@ -423,7 +573,6 @@ class KDNA_Points_Rewards {
             return;
         }
 
-        // Only award for first review on a product
         if ( get_comment_meta( $comment_id, '_kdna_points_awarded', true ) ) {
             return;
         }
@@ -455,16 +604,28 @@ class KDNA_Points_Rewards {
             return;
         }
 
-        $points = $this->get_points_for_product( $product );
-        if ( $points <= 0 ) {
-            return;
+        // Variable products show "earn up to" message.
+        if ( $product->is_type( 'variable' ) ) {
+            $points = $this->get_max_points_for_variable( $product );
+            if ( $points <= 0 ) {
+                return;
+            }
+            $message = str_replace(
+                [ '{points}', '{points_label}' ],
+                [ $points, $this->get_label( $points ) ],
+                $this->settings['variable_product_message']
+            );
+        } else {
+            $points = $this->get_points_for_product( $product );
+            if ( $points <= 0 ) {
+                return;
+            }
+            $message = str_replace(
+                [ '{points}', '{points_label}' ],
+                [ $points, $this->get_label( $points ) ],
+                $this->settings['product_message']
+            );
         }
-
-        $message = str_replace(
-            [ '{points}', '{points_label}' ],
-            [ $points, $this->get_label( $points ) ],
-            $this->settings['product_message']
-        );
 
         echo '<div class="kdna-points-message woocommerce-info">' . wp_kses_post( $message ) . '</div>';
     }
@@ -477,7 +638,7 @@ class KDNA_Points_Rewards {
         $user_id = get_current_user_id();
         $points_for_cart = $this->get_points_for_cart();
 
-        // Earn message
+        // Earn message.
         if ( $points_for_cart > 0 ) {
             $message = str_replace(
                 [ '{points}', '{points_label}' ],
@@ -487,27 +648,52 @@ class KDNA_Points_Rewards {
             echo '<div class="kdna-points-message woocommerce-info">' . wp_kses_post( $message ) . '</div>';
         }
 
-        // Redeem message
+        // Redeem message.
         $user_points = $this->get_user_points( $user_id );
         if ( $user_points > 0 ) {
             $available_discount = min( $this->calculate_points_value( $user_points ), $this->get_max_cart_discount() );
             $points_needed = $this->calculate_points_for_discount( $available_discount );
 
             if ( $available_discount > 0 ) {
-                // Check if already applied
+                // Check if already applied.
                 $session_code = WC()->session ? WC()->session->get( 'kdna_points_coupon' ) : '';
                 $applied = $session_code && WC()->cart->has_discount( $session_code );
 
-                if ( ! $applied ) {
+                if ( $applied ) {
+                    // Show "remove" link when discount is already applied.
+                    $remove_url = wp_nonce_url(
+                        add_query_arg( 'kdna_remove_points', '1' ),
+                        'kdna-remove-points'
+                    );
+                    echo '<div class="kdna-points-redeem woocommerce-info">';
+                    printf(
+                        wp_kses_post( __( 'Points discount applied! <a href="%s">Remove discount</a>', 'kdna-ecommerce' ) ),
+                        esc_url( $remove_url )
+                    );
+                    echo '</div>';
+                } else {
                     $message = str_replace(
-                        [ '{points}', '{points_label}', '{discount}' ],
-                        [ $points_needed, $this->get_label( $points_needed ), wc_price( $available_discount ) ],
+                        [ '{points}', '{points_label}', '{points_value}', '{discount}' ],
+                        [ $points_needed, $this->get_label( $points_needed ), wc_price( $available_discount ), wc_price( $available_discount ) ],
                         $this->settings['redeem_message']
                     );
                     echo '<div class="kdna-points-redeem woocommerce-info">';
                     echo wp_kses_post( $message );
-                    echo '<form method="post" class="kdna-redeem-form" style="display:inline-block;margin-left:10px;">';
+                    echo '<form method="post" class="kdna-redeem-form">';
                     wp_nonce_field( 'kdna-redeem-points', 'kdna_redeem_nonce' );
+
+                    if ( $this->settings['partial_redemption'] === 'yes' ) {
+                        echo '<div class="kdna-partial-redeem">';
+                        echo '<label for="kdna_redeem_points_amount">' . esc_html__( 'Points to redeem:', 'kdna-ecommerce' ) . '</label> ';
+                        echo '<input type="number" name="kdna_redeem_points_amount" id="kdna_redeem_points_amount" class="input-text" min="1" max="' . esc_attr( $user_points ) . '" value="' . esc_attr( $points_needed ) . '" step="1"> ';
+                        echo '<span class="description">' . sprintf(
+                            /* translators: %d is the number of available points */
+                            esc_html__( '(You have %d available)', 'kdna-ecommerce' ),
+                            $user_points
+                        ) . '</span>';
+                        echo '</div>';
+                    }
+
                     echo '<button type="submit" name="kdna_redeem_points" value="1" class="button">' . esc_html__( 'Apply Discount', 'kdna-ecommerce' ) . '</button>';
                     echo '</form></div>';
                 }
@@ -517,19 +703,24 @@ class KDNA_Points_Rewards {
 
     public function show_thankyou_message( $order_id ) {
         $order = wc_get_order( $order_id );
-        if ( ! $order ) {
+        if ( ! $order || ! $order->get_user_id() ) {
             return;
         }
 
-        $earned = $order->get_meta( '_kdna_points_earned' );
-        if ( $earned > 0 ) {
-            $message = str_replace(
-                [ '{points}', '{points_label}' ],
-                [ $earned, $this->get_label( $earned ) ],
-                'You have earned <strong>{points}</strong> {points_label} for this order!'
-            );
-            echo '<div class="kdna-points-message woocommerce-message">' . wp_kses_post( $message ) . '</div>';
+        $earned = (int) $order->get_meta( '_kdna_points_earned' );
+        if ( $earned <= 0 ) {
+            return;
         }
+
+        $total_points = $this->get_user_points( $order->get_user_id() );
+
+        $message = str_replace(
+            [ '{points}', '{points_label}', '{total_points}', '{total_points_label}' ],
+            [ $earned, $this->get_label( $earned ), $total_points, $this->get_label( $total_points ) ],
+            $this->settings['thankyou_message']
+        );
+
+        echo '<div class="kdna-points-message woocommerce-message">' . wp_kses_post( $message ) . '</div>';
     }
 
     // ─── My Account ───
@@ -622,15 +813,24 @@ class KDNA_Points_Rewards {
     public function expire_points() {
         global $wpdb;
 
-        $months = (int) $this->settings['expiry_period'];
-        if ( $months <= 0 ) {
+        $period = (int) $this->settings['expiry_period'];
+        if ( $period <= 0 ) {
             return;
         }
 
-        $expire_before = gmdate( 'Y-m-d H:i:s', strtotime( "-{$months} months" ) );
+        $unit = $this->settings['expiry_unit'] ?? 'months';
+        $expire_before = gmdate( 'Y-m-d H:i:s', strtotime( "-{$period} {$unit}" ) );
 
+        // If expiry_since_date is set, only expire points earned on or after that date.
+        $since_clause = '';
+        if ( ! empty( $this->settings['expiry_since_date'] ) ) {
+            $since_date = sanitize_text_field( $this->settings['expiry_since_date'] );
+            $since_clause = $wpdb->prepare( ' AND date >= %s', $since_date . ' 00:00:00' );
+        }
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $expiring = $wpdb->get_results( $wpdb->prepare(
-            "SELECT * FROM {$this->points_table} WHERE date < %s AND points_balance > 0",
+            "SELECT * FROM {$this->points_table} WHERE date < %s AND points_balance > 0" . $since_clause,
             $expire_before
         ));
 
@@ -638,6 +838,46 @@ class KDNA_Points_Rewards {
             $wpdb->update( $this->points_table, [ 'points_balance' => 0 ], [ 'id' => $row->id ] );
             $this->add_log( (int) $row->user_id, -(int) $row->points_balance, 'expire', (int) $row->id );
         }
+    }
+
+    // ─── Apply Points to Previous Orders (AJAX) ───
+
+    public function ajax_apply_previous_orders() {
+        check_ajax_referer( 'kdna-admin-nonce', 'nonce' );
+
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_send_json_error( __( 'Permission denied.', 'kdna-ecommerce' ) );
+        }
+
+        $since = sanitize_text_field( $_POST['since'] ?? '' );
+        $args = [
+            'status'  => [ 'wc-completed', 'wc-processing' ],
+            'limit'   => -1,
+            'return'  => 'ids',
+        ];
+
+        if ( $since ) {
+            $args['date_created'] = '>=' . $since;
+        }
+
+        $order_ids = wc_get_orders( $args );
+        $count = 0;
+
+        foreach ( $order_ids as $order_id ) {
+            $order = wc_get_order( $order_id );
+            if ( ! $order || ! $order->get_user_id() || $order->get_meta( '_kdna_points_earned' ) ) {
+                continue;
+            }
+
+            $this->award_points_for_order( $order_id );
+            $count++;
+        }
+
+        wp_send_json_success( sprintf(
+            /* translators: %d is the number of orders processed */
+            __( 'Points applied to %d orders.', 'kdna-ecommerce' ),
+            $count
+        ));
     }
 
     // ─── Frontend Assets ───

@@ -57,7 +57,19 @@ class KDNA_Admin {
     }
 
     public function sanitize_array( $input ) {
-        return is_array( $input ) ? array_map( 'sanitize_text_field', $input ) : [];
+        if ( ! is_array( $input ) ) {
+            return [];
+        }
+
+        // Ensure checkbox fields default to 'no' when unchecked.
+        $checkbox_fields = [ 'partial_redemption', 'delete_data_on_uninstall' ];
+        foreach ( $checkbox_fields as $field ) {
+            if ( ! isset( $input[ $field ] ) ) {
+                $input[ $field ] = 'no';
+            }
+        }
+
+        return array_map( 'sanitize_text_field', $input );
     }
 
     public function enqueue_assets( $hook ) {
@@ -66,6 +78,11 @@ class KDNA_Admin {
         }
         wp_enqueue_style( 'kdna-admin', KDNA_ECOMMERCE_URL . 'admin/css/admin.css', [], KDNA_ECOMMERCE_VERSION );
         wp_enqueue_script( 'kdna-admin', KDNA_ECOMMERCE_URL . 'admin/js/admin.js', [ 'jquery' ], KDNA_ECOMMERCE_VERSION, true );
+        wp_localize_script( 'kdna-admin', 'kdna_admin', [
+            'ajax_url'            => admin_url( 'admin-ajax.php' ),
+            'nonce'               => wp_create_nonce( 'kdna-admin-nonce' ),
+            'confirm_apply_points'=> __( 'Are you sure? This will award points to all qualifying previous orders.', 'kdna-ecommerce' ),
+        ]);
     }
 
     public function render_settings_page() {
@@ -171,22 +188,10 @@ class KDNA_Admin {
 
     private function render_points_tab( $modules ) {
         $settings = get_option( 'kdna_points_settings', [] );
-        $defaults = [
-            'earn_ratio'              => '1:1',
-            'redeem_ratio'            => '100:1',
-            'points_label_singular'   => 'Point',
-            'points_label_plural'     => 'Points',
-            'earn_account_signup'     => '0',
-            'earn_review'             => '0',
-            'max_discount'            => '',
-            'max_discount_type'       => 'fixed',
-            'product_message'         => 'Earn <strong>{points}</strong> {points_label} by purchasing this product.',
-            'cart_message'            => 'Complete this order to earn <strong>{points}</strong> {points_label}.',
-            'redeem_message'          => 'Use <strong>{points}</strong> {points_label} for a <strong>{discount}</strong> discount.',
-            'expiry_period'           => '',
-        ];
+        $defaults = KDNA_Points_Rewards::get_default_settings();
         $settings = wp_parse_args( $settings, $defaults );
         $active = ( $modules['points_rewards'] ?? 'no' ) === 'yes';
+        $currency = function_exists( 'get_woocommerce_currency_symbol' ) ? get_woocommerce_currency_symbol() : '$';
         ?>
         <form method="post" action="options.php">
             <?php settings_fields( 'kdna_ecommerce_points' ); ?>
@@ -195,84 +200,250 @@ class KDNA_Admin {
                 <div class="notice notice-warning inline"><p><?php esc_html_e( 'This module is currently disabled. Enable it in the General tab.', 'kdna-ecommerce' ); ?></p></div>
             <?php endif; ?>
 
-            <h2><?php esc_html_e( 'Points Earning', 'kdna-ecommerce' ); ?></h2>
+            <!-- Points Settings -->
+            <h2><?php esc_html_e( 'Points Settings', 'kdna-ecommerce' ); ?></h2>
             <table class="form-table">
                 <tr>
-                    <th><label for="earn_ratio"><?php esc_html_e( 'Earn Points Ratio', 'kdna-ecommerce' ); ?></label></th>
+                    <th>
+                        <label for="earn_points"><?php esc_html_e( 'Earn Points Conversion Rate', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Set the number of points awarded per monetary unit spent.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
                     <td>
-                        <input type="text" id="earn_ratio" name="kdna_points_settings[earn_ratio]" value="<?php echo esc_attr( $settings['earn_ratio'] ); ?>" class="regular-text">
-                        <p class="description"><?php esc_html_e( 'Points earned per currency spent. E.g., "1:1" = 1 point per $1 spent.', 'kdna-ecommerce' ); ?></p>
+                        <input type="number" id="earn_points" name="kdna_points_settings[earn_points]" value="<?php echo esc_attr( $settings['earn_points'] ); ?>" class="small-text" min="0" step="any">
+                        <span><?php esc_html_e( 'Points', 'kdna-ecommerce' ); ?></span>
+                        <span class="kdna-separator">=</span>
+                        <span><?php echo esc_html( $currency ); ?></span>
+                        <input type="number" id="earn_monetary" name="kdna_points_settings[earn_monetary]" value="<?php echo esc_attr( $settings['earn_monetary'] ); ?>" class="small-text" min="0" step="any">
                     </td>
                 </tr>
                 <tr>
-                    <th><label for="earn_account_signup"><?php esc_html_e( 'Account Signup Points', 'kdna-ecommerce' ); ?></label></th>
+                    <th>
+                        <label for="rounding_mode"><?php esc_html_e( 'Earn Points Rounding Mode', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'How fractional points are rounded when earning.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
                     <td>
-                        <input type="number" id="earn_account_signup" name="kdna_points_settings[earn_account_signup]" value="<?php echo esc_attr( $settings['earn_account_signup'] ); ?>" min="0">
-                    </td>
-                </tr>
-                <tr>
-                    <th><label for="earn_review"><?php esc_html_e( 'Review Points', 'kdna-ecommerce' ); ?></label></th>
-                    <td>
-                        <input type="number" id="earn_review" name="kdna_points_settings[earn_review]" value="<?php echo esc_attr( $settings['earn_review'] ); ?>" min="0">
-                    </td>
-                </tr>
-            </table>
-
-            <h2><?php esc_html_e( 'Points Redemption', 'kdna-ecommerce' ); ?></h2>
-            <table class="form-table">
-                <tr>
-                    <th><label for="redeem_ratio"><?php esc_html_e( 'Redeem Points Ratio', 'kdna-ecommerce' ); ?></label></th>
-                    <td>
-                        <input type="text" id="redeem_ratio" name="kdna_points_settings[redeem_ratio]" value="<?php echo esc_attr( $settings['redeem_ratio'] ); ?>" class="regular-text">
-                        <p class="description"><?php esc_html_e( 'Points needed per currency discount. E.g., "100:1" = 100 points for $1 off.', 'kdna-ecommerce' ); ?></p>
-                    </td>
-                </tr>
-                <tr>
-                    <th><label for="max_discount"><?php esc_html_e( 'Maximum Discount', 'kdna-ecommerce' ); ?></label></th>
-                    <td>
-                        <input type="text" id="max_discount" name="kdna_points_settings[max_discount]" value="<?php echo esc_attr( $settings['max_discount'] ); ?>" class="small-text">
-                        <select name="kdna_points_settings[max_discount_type]">
-                            <option value="fixed" <?php selected( $settings['max_discount_type'], 'fixed' ); ?>><?php esc_html_e( 'Fixed amount', 'kdna-ecommerce' ); ?></option>
-                            <option value="percentage" <?php selected( $settings['max_discount_type'], 'percentage' ); ?>><?php esc_html_e( 'Percentage of cart', 'kdna-ecommerce' ); ?></option>
+                        <select id="rounding_mode" name="kdna_points_settings[rounding_mode]">
+                            <option value="round" <?php selected( $settings['rounding_mode'], 'round' ); ?>><?php esc_html_e( 'Round to nearest integer', 'kdna-ecommerce' ); ?></option>
+                            <option value="floor" <?php selected( $settings['rounding_mode'], 'floor' ); ?>><?php esc_html_e( 'Always round down', 'kdna-ecommerce' ); ?></option>
+                            <option value="ceil" <?php selected( $settings['rounding_mode'], 'ceil' ); ?>><?php esc_html_e( 'Always round up', 'kdna-ecommerce' ); ?></option>
                         </select>
-                        <p class="description"><?php esc_html_e( 'Leave blank for no limit.', 'kdna-ecommerce' ); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th><label for="expiry_period"><?php esc_html_e( 'Points Expiry', 'kdna-ecommerce' ); ?></label></th>
+                    <th>
+                        <label for="redeem_points"><?php esc_html_e( 'Redemption Conversion Rate', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Set the number of points required per monetary unit of discount.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
                     <td>
-                        <input type="text" id="expiry_period" name="kdna_points_settings[expiry_period]" value="<?php echo esc_attr( $settings['expiry_period'] ); ?>" class="small-text" placeholder="e.g. 12">
-                        <span><?php esc_html_e( 'months (leave blank for no expiry)', 'kdna-ecommerce' ); ?></span>
+                        <input type="number" id="redeem_points" name="kdna_points_settings[redeem_points]" value="<?php echo esc_attr( $settings['redeem_points'] ); ?>" class="small-text" min="0" step="any">
+                        <span><?php esc_html_e( 'Points', 'kdna-ecommerce' ); ?></span>
+                        <span class="kdna-separator">=</span>
+                        <span><?php echo esc_html( $currency ); ?></span>
+                        <input type="number" id="redeem_monetary" name="kdna_points_settings[redeem_monetary]" value="<?php echo esc_attr( $settings['redeem_monetary'] ); ?>" class="small-text" min="0" step="any">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label><?php esc_html_e( 'Partial Redemption', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'When enabled, customers can choose how many points to redeem instead of using all available points.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="kdna_points_settings[partial_redemption]" value="yes" <?php checked( $settings['partial_redemption'], 'yes' ); ?>>
+                            <?php esc_html_e( 'Enable partial redemption', 'kdna-ecommerce' ); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Lets users enter how many points they wish to redeem during cart/checkout.', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="min_discount"><?php esc_html_e( 'Minimum Points Discount', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'The minimum discount amount that can be redeemed. Leave blank for no minimum.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="text" id="min_discount" name="kdna_points_settings[min_discount]" value="<?php echo esc_attr( $settings['min_discount'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'Enter amount', 'kdna-ecommerce' ); ?>">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="max_discount"><?php esc_html_e( 'Maximum Points Discount', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Maximum discount from points per order. Use a number for a fixed amount, or append % for a percentage of the cart total. Leave blank for no limit.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="text" id="max_discount" name="kdna_points_settings[max_discount]" value="<?php echo esc_attr( $settings['max_discount'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'Enter amount or percentage value', 'kdna-ecommerce' ); ?>">
+                        <p class="description"><?php esc_html_e( 'Enter a fixed amount (e.g. 50) or a percentage (e.g. 50%). Leave blank for no limit.', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="max_product_discount"><?php esc_html_e( 'Maximum Product Points Discount', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Maximum discount per product from points. Use a number for a fixed amount, or append % for a percentage of the product price. Leave blank for no limit.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="text" id="max_product_discount" name="kdna_points_settings[max_product_discount]" value="<?php echo esc_attr( $settings['max_product_discount'] ); ?>" class="regular-text" placeholder="<?php esc_attr_e( 'Enter amount or percentage value', 'kdna-ecommerce' ); ?>">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="tax_setting"><?php esc_html_e( 'Tax Setting', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Choose whether points are calculated on prices before or after tax.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <select id="tax_setting" name="kdna_points_settings[tax_setting]">
+                            <option value="inclusive" <?php selected( $settings['tax_setting'], 'inclusive' ); ?>><?php esc_html_e( 'Apply points to price inclusive of taxes.', 'kdna-ecommerce' ); ?></option>
+                            <option value="exclusive" <?php selected( $settings['tax_setting'], 'exclusive' ); ?>><?php esc_html_e( 'Apply points to price exclusive of taxes.', 'kdna-ecommerce' ); ?></option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="points_label_singular"><?php esc_html_e( 'Points Label', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'The singular and plural label for points shown to customers.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="text" id="points_label_singular" name="kdna_points_settings[points_label_singular]" value="<?php echo esc_attr( $settings['points_label_singular'] ); ?>" class="small-text">
+                        <input type="text" id="points_label_plural" name="kdna_points_settings[points_label_plural]" value="<?php echo esc_attr( $settings['points_label_plural'] ); ?>" class="small-text">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="expiry_period"><?php esc_html_e( 'Points Expire After', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Set when points expire. Leave blank for no expiry.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="number" id="expiry_period" name="kdna_points_settings[expiry_period]" value="<?php echo esc_attr( $settings['expiry_period'] ); ?>" class="small-text" min="0">
+                        <select name="kdna_points_settings[expiry_unit]">
+                            <option value="months" <?php selected( $settings['expiry_unit'], 'months' ); ?>><?php esc_html_e( 'Months', 'kdna-ecommerce' ); ?></option>
+                            <option value="days" <?php selected( $settings['expiry_unit'], 'days' ); ?>><?php esc_html_e( 'Days', 'kdna-ecommerce' ); ?></option>
+                            <option value="years" <?php selected( $settings['expiry_unit'], 'years' ); ?>><?php esc_html_e( 'Years', 'kdna-ecommerce' ); ?></option>
+                        </select>
+                        <br>
+                        <label style="margin-top:8px;display:inline-block;">
+                            <?php esc_html_e( 'Only apply to points earned since', 'kdna-ecommerce' ); ?> - <em><?php esc_html_e( 'Optional', 'kdna-ecommerce' ); ?></em>
+                            <input type="date" name="kdna_points_settings[expiry_since_date]" value="<?php echo esc_attr( $settings['expiry_since_date'] ); ?>" placeholder="YYYY-MM-DD">
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Leave blank to apply to all points.', 'kdna-ecommerce' ); ?></p>
                     </td>
                 </tr>
             </table>
 
-            <h2><?php esc_html_e( 'Labels & Messages', 'kdna-ecommerce' ); ?></h2>
+            <!-- Product / Cart / Checkout Messages -->
+            <h2><?php esc_html_e( 'Product / Cart / Checkout Messages', 'kdna-ecommerce' ); ?></h2>
+            <p class="description">
+                <?php
+                printf(
+                    /* translators: %1$s and %2$s are placeholder tokens */
+                    esc_html__( 'Adjust the message by using %1$s and %2$s to represent the points earned / available for redemption and the label.', 'kdna-ecommerce' ),
+                    '<code>{points}</code>',
+                    '<code>{points_label}</code>'
+                );
+                ?>
+            </p>
             <table class="form-table">
                 <tr>
-                    <th><label for="points_label_singular"><?php esc_html_e( 'Points Label (Singular)', 'kdna-ecommerce' ); ?></label></th>
-                    <td><input type="text" id="points_label_singular" name="kdna_points_settings[points_label_singular]" value="<?php echo esc_attr( $settings['points_label_singular'] ); ?>"></td>
-                </tr>
-                <tr>
-                    <th><label for="points_label_plural"><?php esc_html_e( 'Points Label (Plural)', 'kdna-ecommerce' ); ?></label></th>
-                    <td><input type="text" id="points_label_plural" name="kdna_points_settings[points_label_plural]" value="<?php echo esc_attr( $settings['points_label_plural'] ); ?>"></td>
-                </tr>
-                <tr>
-                    <th><label for="product_message"><?php esc_html_e( 'Single Product Message', 'kdna-ecommerce' ); ?></label></th>
+                    <th>
+                        <label for="product_message"><?php esc_html_e( 'Single Product Page Message', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Displayed on the single product page. Use {points} and {points_label}.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
                     <td>
                         <textarea id="product_message" name="kdna_points_settings[product_message]" rows="2" class="large-text"><?php echo esc_textarea( $settings['product_message'] ); ?></textarea>
-                        <p class="description"><?php esc_html_e( 'Available placeholders: {points}, {points_label}', 'kdna-ecommerce' ); ?></p>
                     </td>
                 </tr>
                 <tr>
-                    <th><label for="cart_message"><?php esc_html_e( 'Cart Earn Message', 'kdna-ecommerce' ); ?></label></th>
-                    <td><textarea id="cart_message" name="kdna_points_settings[cart_message]" rows="2" class="large-text"><?php echo esc_textarea( $settings['cart_message'] ); ?></textarea></td>
+                    <th>
+                        <label for="variable_product_message"><?php esc_html_e( 'Variable Product Page Message', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Displayed on variable product pages. Use {points} and {points_label}.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <textarea id="variable_product_message" name="kdna_points_settings[variable_product_message]" rows="2" class="large-text"><?php echo esc_textarea( $settings['variable_product_message'] ); ?></textarea>
+                    </td>
                 </tr>
                 <tr>
-                    <th><label for="redeem_message"><?php esc_html_e( 'Cart Redeem Message', 'kdna-ecommerce' ); ?></label></th>
+                    <th>
+                        <label for="cart_message"><?php esc_html_e( 'Earn Points Cart/Checkout Page Message', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Shown on the cart and checkout pages. Use {points} and {points_label}.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <textarea id="cart_message" name="kdna_points_settings[cart_message]" rows="2" class="large-text"><?php echo esc_textarea( $settings['cart_message'] ); ?></textarea>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="redeem_message"><?php esc_html_e( 'Redeem Points Cart/Checkout Page Message', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Shown when points are available to redeem. Use {points}, {points_label}, {points_value}.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
                     <td>
                         <textarea id="redeem_message" name="kdna_points_settings[redeem_message]" rows="2" class="large-text"><?php echo esc_textarea( $settings['redeem_message'] ); ?></textarea>
-                        <p class="description"><?php esc_html_e( 'Available placeholders: {points}, {points_label}, {discount}', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="thankyou_message"><?php esc_html_e( 'Thank You / Order Received Page Message', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Shown on the order confirmation page. Use {points}, {points_label}, {total_points}, {total_points_label}.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <textarea id="thankyou_message" name="kdna_points_settings[thankyou_message]" rows="3" class="large-text"><?php echo esc_textarea( $settings['thankyou_message'] ); ?></textarea>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Points Earned for Actions -->
+            <h2><?php esc_html_e( 'Points Earned for Actions', 'kdna-ecommerce' ); ?></h2>
+            <p class="description"><?php esc_html_e( 'Customers can also earn points for actions like creating an account or writing a product review. You can enter the amount of points the customer will receive for each action.', 'kdna-ecommerce' ); ?></p>
+            <table class="form-table">
+                <tr>
+                    <th>
+                        <label for="earn_account_signup"><?php esc_html_e( 'Points earned for account signup', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Points awarded when a new account is created.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="number" id="earn_account_signup" name="kdna_points_settings[earn_account_signup]" value="<?php echo esc_attr( $settings['earn_account_signup'] ); ?>" class="small-text" min="0">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="earn_review"><?php esc_html_e( 'Points earned for writing a review', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Points awarded for the first review on a product.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="number" id="earn_review" name="kdna_points_settings[earn_review]" value="<?php echo esc_attr( $settings['earn_review'] ); ?>" class="small-text" min="0">
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Actions -->
+            <h2><?php esc_html_e( 'Actions', 'kdna-ecommerce' ); ?></h2>
+            <table class="form-table">
+                <tr>
+                    <th>
+                        <label><?php esc_html_e( 'Apply Points to Previous Orders', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Award points for previously completed orders that were placed before the plugin was active.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <button type="button" class="button" id="kdna-apply-previous-orders"><?php esc_html_e( 'Apply Points', 'kdna-ecommerce' ); ?></button>
+                        <span id="kdna-apply-previous-spinner" class="spinner" style="float:none;"></span>
+                        <span id="kdna-apply-previous-result"></span>
+                        <br>
+                        <label style="margin-top:8px;display:inline-block;">
+                            <?php esc_html_e( 'Since', 'kdna-ecommerce' ); ?> - <em><?php esc_html_e( 'Optional: Leave blank to apply to all orders', 'kdna-ecommerce' ); ?></em>
+                            <br>
+                            <input type="date" id="kdna-apply-previous-since" value="" placeholder="YYYY-MM-DD">
+                        </label>
+                    </td>
+                </tr>
+            </table>
+
+            <!-- Advanced Settings -->
+            <h2><?php esc_html_e( 'Advanced Settings', 'kdna-ecommerce' ); ?></h2>
+            <table class="form-table">
+                <tr>
+                    <th><label><?php esc_html_e( 'Delete plugin data', 'kdna-ecommerce' ); ?></label></th>
+                    <td>
+                        <label>
+                            <input type="checkbox" name="kdna_points_settings[delete_data_on_uninstall]" value="yes" <?php checked( $settings['delete_data_on_uninstall'], 'yes' ); ?>>
+                            <?php esc_html_e( 'Delete plugin data when plugin is deleted', 'kdna-ecommerce' ); ?>
+                        </label>
+                        <p class="description"><?php esc_html_e( "This includes plugin settings, users' points, points log, point settings for products, point set categories, and point set actions.", 'kdna-ecommerce' ); ?></p>
                     </td>
                 </tr>
             </table>
