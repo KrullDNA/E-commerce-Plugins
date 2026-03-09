@@ -84,8 +84,9 @@ class KDNA_Reviews {
 
                 <?php if ( $this->settings['enable_videos'] === 'yes' ) : ?>
                 <div class="kdna-video-field">
-                    <label for="kdna_review_video_url"><?php esc_html_e( 'Video URL (YouTube/Vimeo)', 'kdna-ecommerce' ); ?></label>
-                    <input type="url" id="kdna_review_video_url" name="kdna_review_video_url" placeholder="https://www.youtube.com/watch?v=...">
+                    <label for="kdna_review_video_url"><?php esc_html_e( 'Video URL', 'kdna-ecommerce' ); ?></label>
+                    <input type="url" id="kdna_review_video_url" name="kdna_review_video_url" placeholder="https://...">
+                    <p class="description"><?php esc_html_e( 'Supports YouTube, Vimeo, Dailymotion, and other oEmbed-compatible video URLs.', 'kdna-ecommerce' ); ?></p>
                 </div>
                 <?php endif; ?>
             </div>

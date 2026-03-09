@@ -271,6 +271,12 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
     }
 
     private function render_with_loop_template( $product_ids, $template_id ) {
+        // Explicitly enqueue the Elementor template's CSS so styles aren't stripped on the frontend.
+        if ( class_exists( '\Elementor\Core\Files\CSS\Post' ) ) {
+            $css_file = new \Elementor\Core\Files\CSS\Post( $template_id );
+            $css_file->enqueue();
+        }
+
         foreach ( $product_ids as $product_id ) {
             $product_obj = wc_get_product( $product_id );
             if ( ! $product_obj ) {
@@ -305,30 +311,39 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
     }
 
     private function render_default_cards( $product_ids ) {
+        // Use WooCommerce's native product content template for proper theme compatibility.
+        // This ensures add-to-cart buttons, prices, etc. are rendered with WC classes and
+        // the theme's CSS is properly applied.
+        global $post, $product;
+        $original_post = $post;
+        $original_product = $product;
+
+        // Wrap in woocommerce class for theme CSS to apply.
+        echo '<style>.kdna-related-grid .product { list-style: none; }</style>';
+
         foreach ( $product_ids as $product_id ) {
             $product_obj = wc_get_product( $product_id );
             if ( ! $product_obj ) {
                 continue;
             }
 
-            $permalink = $product_obj->get_permalink();
-            $image = $product_obj->get_image( 'woocommerce_thumbnail' );
-            $title = $product_obj->get_name();
-            $price = $product_obj->get_price_html();
+            $post = get_post( $product_id );
+            setup_postdata( $post );
+            $GLOBALS['product'] = $product_obj;
 
-            ?>
-            <div class="kdna-related-product-card" style="overflow:hidden;">
-                <a href="<?php echo esc_url( $permalink ); ?>" class="kdna-product-image" style="display:block;">
-                    <?php echo $image; ?>
-                </a>
-                <div style="padding:10px 12px;">
-                    <h3 class="kdna-product-title" style="margin:0 0 6px;font-size:0.95em;">
-                        <a href="<?php echo esc_url( $permalink ); ?>" style="text-decoration:none;"><?php echo esc_html( $title ); ?></a>
-                    </h3>
-                    <div class="kdna-product-price" style="font-weight:600;"><?php echo $price; ?></div>
-                </div>
-            </div>
-            <?php
+            // Use WooCommerce's content-product template for full theme compatibility.
+            echo '<div class="kdna-related-grid-item">';
+            wc_get_template_part( 'content', 'product' );
+            echo '</div>';
+        }
+
+        // Restore globals.
+        $post = $original_post;
+        $product = $original_product;
+        if ( $original_post ) {
+            setup_postdata( $original_post );
+        } else {
+            wp_reset_postdata();
         }
     }
 }
