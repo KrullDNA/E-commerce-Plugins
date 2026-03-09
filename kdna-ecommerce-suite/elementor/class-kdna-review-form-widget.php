@@ -112,20 +112,145 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
             'label'     => __( 'Color', 'kdna-ecommerce' ),
             'type'      => \Elementor\Controls_Manager::COLOR,
             'default'   => '#333',
-            'selectors' => [ '{{WRAPPER}} .kdna-review-form-title' => 'color: {{VALUE}};' ],
+            'selectors' => [ '{{WRAPPER}} .kdna-review-form-container .kdna-review-form-title' => 'color: {{VALUE}};' ],
         ]);
 
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
             'name'     => 'title_typography',
-            'selector' => '{{WRAPPER}} .kdna-review-form-title',
+            'selector' => '{{WRAPPER}} .kdna-review-form-container .kdna-review-form-title',
         ]);
 
         $this->add_responsive_control( 'title_margin', [
             'label'      => __( 'Margin', 'kdna-ecommerce' ),
             'type'       => \Elementor\Controls_Manager::DIMENSIONS,
             'size_units' => [ 'px', 'em' ],
-            'default'    => [ 'top' => '0', 'right' => '0', 'bottom' => '16', 'left' => '0', 'unit' => 'px' ],
-            'selectors'  => [ '{{WRAPPER}} .kdna-review-form-title' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+            'default'    => [ 'top' => '0', 'right' => '0', 'bottom' => '16', 'left' => '0', 'unit' => 'px', 'isLinked' => false ],
+            'selectors'  => [ '{{WRAPPER}} .kdna-review-form-container .kdna-review-form-title' => 'margin: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}} !important;' ],
+        ]);
+
+        $this->end_controls_section();
+
+        // Style - Field Labels
+        $this->start_controls_section( 'label_style', [
+            'label' => __( 'Field Labels', 'kdna-ecommerce' ),
+            'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+        ]);
+
+        $this->add_control( 'label_color', [
+            'label'     => __( 'Color', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::COLOR,
+            'default'   => '#333',
+            'selectors' => [ '{{WRAPPER}} .kdna-review-form-container label' => 'color: {{VALUE}};' ],
+        ]);
+
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
+            'name'     => 'label_typography',
+            'selector' => '{{WRAPPER}} .kdna-review-form-container label',
+        ]);
+
+        $this->add_responsive_control( 'label_spacing', [
+            'label'     => __( 'Bottom Spacing', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::SLIDER,
+            'range'     => [ 'px' => [ 'min' => 0, 'max' => 30 ] ],
+            'default'   => [ 'size' => 6, 'unit' => 'px' ],
+            'selectors' => [ '{{WRAPPER}} .kdna-review-form-container label' => 'margin-bottom: {{SIZE}}{{UNIT}}; display: block;' ],
+        ]);
+
+        $this->end_controls_section();
+
+        // Style - Form Fields (inputs, textareas)
+        $this->start_controls_section( 'field_style', [
+            'label' => __( 'Form Fields', 'kdna-ecommerce' ),
+            'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+        ]);
+
+        $this->add_control( 'field_bg', [
+            'label'     => __( 'Background Color', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::COLOR,
+            'selectors' => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="text"]' => 'background-color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="url"]' => 'background-color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="email"]' => 'background-color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-review-form-container textarea' => 'background-color: {{VALUE}};',
+            ],
+        ]);
+
+        $this->add_control( 'field_text_color', [
+            'label'     => __( 'Text Color', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::COLOR,
+            'selectors' => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="text"]' => 'color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="url"]' => 'color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="email"]' => 'color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-review-form-container textarea' => 'color: {{VALUE}};',
+            ],
+        ]);
+
+        $this->add_control( 'field_border_color', [
+            'label'     => __( 'Border Color', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::COLOR,
+            'default'   => '#ddd',
+            'selectors' => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="text"]' => 'border-color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="url"]' => 'border-color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="email"]' => 'border-color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-review-form-container textarea' => 'border-color: {{VALUE}};',
+            ],
+        ]);
+
+        $this->add_control( 'field_border_width', [
+            'label'     => __( 'Border Width', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::SLIDER,
+            'range'     => [ 'px' => [ 'min' => 0, 'max' => 5 ] ],
+            'default'   => [ 'size' => 1, 'unit' => 'px' ],
+            'selectors' => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="text"]' => 'border-width: {{SIZE}}{{UNIT}}; border-style: solid;',
+                '{{WRAPPER}} .kdna-review-form-container input[type="url"]' => 'border-width: {{SIZE}}{{UNIT}}; border-style: solid;',
+                '{{WRAPPER}} .kdna-review-form-container input[type="email"]' => 'border-width: {{SIZE}}{{UNIT}}; border-style: solid;',
+                '{{WRAPPER}} .kdna-review-form-container textarea' => 'border-width: {{SIZE}}{{UNIT}}; border-style: solid;',
+            ],
+        ]);
+
+        $this->add_control( 'field_border_radius', [
+            'label'      => __( 'Border Radius', 'kdna-ecommerce' ),
+            'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+            'size_units' => [ 'px' ],
+            'default'    => [ 'top' => '4', 'right' => '4', 'bottom' => '4', 'left' => '4', 'unit' => 'px' ],
+            'selectors'  => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="text"]' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="url"]' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="email"]' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-review-form-container textarea' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_responsive_control( 'field_padding', [
+            'label'      => __( 'Padding', 'kdna-ecommerce' ),
+            'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+            'size_units' => [ 'px', 'em' ],
+            'default'    => [ 'top' => '10', 'right' => '12', 'bottom' => '10', 'left' => '12', 'unit' => 'px' ],
+            'selectors'  => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="text"]' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="url"]' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-review-form-container input[type="email"]' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-review-form-container textarea' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+            ],
+        ]);
+
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
+            'name'     => 'field_typography',
+            'selector' => '{{WRAPPER}} .kdna-review-form-container input[type="text"], {{WRAPPER}} .kdna-review-form-container input[type="url"], {{WRAPPER}} .kdna-review-form-container input[type="email"], {{WRAPPER}} .kdna-review-form-container textarea',
+        ]);
+
+        $this->add_responsive_control( 'field_spacing', [
+            'label'     => __( 'Field Bottom Spacing', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::SLIDER,
+            'range'     => [ 'px' => [ 'min' => 0, 'max' => 40 ] ],
+            'default'   => [ 'size' => 16, 'unit' => 'px' ],
+            'selectors' => [
+                '{{WRAPPER}} .kdna-review-form-container .kdna-form-field' => 'margin-bottom: {{SIZE}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-review-form-container .comment-form-comment' => 'margin-bottom: {{SIZE}}{{UNIT}};',
+            ],
         ]);
 
         $this->end_controls_section();
@@ -174,20 +299,44 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
         $this->add_control( 'button_bg', [
             'label'     => __( 'Background Color', 'kdna-ecommerce' ),
             'type'      => \Elementor\Controls_Manager::COLOR,
-            'selectors' => [ '{{WRAPPER}} .kdna-review-form-container .submit' => 'background-color: {{VALUE}}; border-color: {{VALUE}};' ],
+            'selectors' => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="submit"]' => 'background-color: {{VALUE}} !important; border-color: {{VALUE}} !important;',
+                '{{WRAPPER}} .kdna-review-form-container .form-submit input' => 'background-color: {{VALUE}} !important; border-color: {{VALUE}} !important;',
+            ],
         ]);
 
         $this->add_control( 'button_text_color', [
             'label'     => __( 'Text Color', 'kdna-ecommerce' ),
             'type'      => \Elementor\Controls_Manager::COLOR,
-            'selectors' => [ '{{WRAPPER}} .kdna-review-form-container .submit' => 'color: {{VALUE}};' ],
+            'selectors' => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="submit"]' => 'color: {{VALUE}} !important;',
+                '{{WRAPPER}} .kdna-review-form-container .form-submit input' => 'color: {{VALUE}} !important;',
+            ],
+        ]);
+
+        $this->add_responsive_control( 'button_padding', [
+            'label'      => __( 'Padding', 'kdna-ecommerce' ),
+            'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+            'size_units' => [ 'px', 'em' ],
+            'selectors'  => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="submit"]' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}} !important;',
+                '{{WRAPPER}} .kdna-review-form-container .form-submit input' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}} !important;',
+            ],
         ]);
 
         $this->add_control( 'button_border_radius', [
             'label'      => __( 'Border Radius', 'kdna-ecommerce' ),
             'type'       => \Elementor\Controls_Manager::SLIDER,
             'range'      => [ 'px' => [ 'min' => 0, 'max' => 30 ] ],
-            'selectors'  => [ '{{WRAPPER}} .kdna-review-form-container .submit' => 'border-radius: {{SIZE}}{{UNIT}};' ],
+            'selectors'  => [
+                '{{WRAPPER}} .kdna-review-form-container input[type="submit"]' => 'border-radius: {{SIZE}}{{UNIT}} !important;',
+                '{{WRAPPER}} .kdna-review-form-container .form-submit input' => 'border-radius: {{SIZE}}{{UNIT}} !important;',
+            ],
+        ]);
+
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
+            'name'     => 'button_typography',
+            'selector' => '{{WRAPPER}} .kdna-review-form-container input[type="submit"], {{WRAPPER}} .kdna-review-form-container .form-submit input',
         ]);
 
         $this->end_controls_section();
@@ -218,13 +367,13 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
         if ( $is_editor ) {
             $this->render_editor_preview( $settings, $review_settings );
         } else {
-            $this->render_live_form( $product, $settings, $review_settings );
+            $this->render_live_form( $product, $settings, $review_settings, $reviews_module );
         }
 
         echo '</div>';
     }
 
-    private function render_live_form( $product, $settings, $review_settings ) {
+    private function render_live_form( $product, $settings, $review_settings, $reviews_module ) {
         if ( ! comments_open( $product->get_id() ) ) {
             echo '<p>' . esc_html__( 'Reviews are closed for this product.', 'kdna-ecommerce' ) . '</p>';
             return;
@@ -238,8 +387,14 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
             return;
         }
 
-        // Use WooCommerce's native comment form with our custom fields.
-        $commenter = wp_get_current_commenter();
+        // IMPORTANT: Temporarily remove the KDNA_Reviews module's hooks that add
+        // duplicate fields to the comment form. The widget provides its own fields.
+        if ( $reviews_module ) {
+            remove_action( 'comment_form_logged_in_after', [ $reviews_module, 'add_review_fields' ] );
+            remove_action( 'comment_form_after_fields', [ $reviews_module, 'add_review_fields' ] );
+        }
+
+        // Build the comment form with our custom fields.
         $comment_form = [
             'title_reply'         => '',
             'title_reply_before'  => '',
@@ -252,7 +407,7 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
 
         // Star rating field.
         if ( $settings['show_rating'] === 'yes' && get_option( 'woocommerce_enable_review_rating' ) === 'yes' ) {
-            $comment_form['comment_field'] .= '<div class="kdna-form-rating-field">';
+            $comment_form['comment_field'] .= '<div class="kdna-form-field kdna-form-rating-field">';
             $comment_form['comment_field'] .= '<label>' . esc_html__( 'Your Rating', 'kdna-ecommerce' ) . ' <span class="required">*</span></label>';
             $comment_form['comment_field'] .= '<div class="kdna-star-rating-input">';
             for ( $i = 5; $i >= 1; $i-- ) {
@@ -264,32 +419,33 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
 
         // Review title field.
         if ( $settings['show_title_field'] === 'yes' ) {
-            $comment_form['comment_field'] .= '<p class="kdna-review-title-field">';
+            $comment_form['comment_field'] .= '<div class="kdna-form-field kdna-review-title-field">';
             $comment_form['comment_field'] .= '<label for="kdna_review_title">' . esc_html__( 'Review Title', 'kdna-ecommerce' ) . '</label>';
-            $comment_form['comment_field'] .= '<input type="text" id="kdna_review_title" name="kdna_review_title" maxlength="200">';
-            $comment_form['comment_field'] .= '</p>';
+            $comment_form['comment_field'] .= '<input type="text" id="kdna_review_title" name="kdna_review_title" maxlength="200" style="width:100%;box-sizing:border-box;">';
+            $comment_form['comment_field'] .= '</div>';
         }
 
         // Comment textarea.
         $comment_form['comment_field'] .= '<p class="comment-form-comment"><label for="comment">' . esc_html__( 'Your Review', 'kdna-ecommerce' ) . ' <span class="required">*</span></label>';
-        $comment_form['comment_field'] .= '<textarea id="comment" name="comment" cols="45" rows="8" required></textarea></p>';
+        $comment_form['comment_field'] .= '<textarea id="comment" name="comment" cols="45" rows="8" required style="width:100%;box-sizing:border-box;"></textarea></p>';
 
         // Photo upload field.
         if ( $settings['show_photos_field'] === 'yes' && ( $review_settings['enable_photos'] ?? 'no' ) === 'yes' ) {
             $max = (int) ( $review_settings['max_attachments'] ?? 5 );
             $size = (int) ( $review_settings['max_file_size'] ?? 5 );
-            $comment_form['comment_field'] .= '<div class="kdna-upload-field">';
+            $comment_form['comment_field'] .= '<div class="kdna-form-field kdna-upload-field">';
             $comment_form['comment_field'] .= '<label for="kdna_review_photos">' . esc_html__( 'Upload Photos', 'kdna-ecommerce' ) . '</label>';
             $comment_form['comment_field'] .= '<input type="file" id="kdna_review_photos" name="kdna_review_photos[]" accept="image/jpeg,image/png,image/gif,image/webp" multiple>';
             $comment_form['comment_field'] .= '<p class="description">' . esc_html( sprintf( __( 'Max %d files, %dMB each', 'kdna-ecommerce' ), $max, $size ) ) . '</p>';
             $comment_form['comment_field'] .= '</div>';
         }
 
-        // Video URL field.
+        // Video URL field — accepts any oEmbed-compatible URL.
         if ( $settings['show_video_field'] === 'yes' && ( $review_settings['enable_videos'] ?? 'no' ) === 'yes' ) {
-            $comment_form['comment_field'] .= '<div class="kdna-video-field">';
-            $comment_form['comment_field'] .= '<label for="kdna_review_video_url">' . esc_html__( 'Video URL (YouTube/Vimeo)', 'kdna-ecommerce' ) . '</label>';
-            $comment_form['comment_field'] .= '<input type="url" id="kdna_review_video_url" name="kdna_review_video_url" placeholder="https://www.youtube.com/watch?v=...">';
+            $comment_form['comment_field'] .= '<div class="kdna-form-field kdna-video-field">';
+            $comment_form['comment_field'] .= '<label for="kdna_review_video_url">' . esc_html__( 'Video URL', 'kdna-ecommerce' ) . '</label>';
+            $comment_form['comment_field'] .= '<input type="url" id="kdna_review_video_url" name="kdna_review_video_url" placeholder="https://..." style="width:100%;box-sizing:border-box;">';
+            $comment_form['comment_field'] .= '<p class="description">' . esc_html__( 'Supports YouTube, Vimeo, Dailymotion, and other oEmbed-compatible video URLs.', 'kdna-ecommerce' ) . '</p>';
             $comment_form['comment_field'] .= '</div>';
         }
 
@@ -298,7 +454,7 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
             $labels = array_map( 'trim', explode( ',', $review_settings['qualifier_labels'] ?? '' ) );
             $labels = array_filter( $labels );
             if ( ! empty( $labels ) ) {
-                $comment_form['comment_field'] .= '<div class="kdna-review-qualifiers">';
+                $comment_form['comment_field'] .= '<div class="kdna-form-field kdna-review-qualifiers">';
                 $comment_form['comment_field'] .= '<p><strong>' . esc_html__( 'Rate the following:', 'kdna-ecommerce' ) . '</strong></p>';
                 foreach ( $labels as $index => $label ) {
                     $field_name = 'kdna_qualifier_' . $index;
@@ -315,26 +471,30 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
             }
         }
 
-        // Ensure form has enctype for file uploads.
-        add_filter( 'comment_form_defaults', function( $defaults ) {
-            $defaults['id_form'] = $defaults['id_form'] ?? 'commentform';
-            return $defaults;
-        });
-
-        // Add enctype to the form tag.
+        // Add enctype to the form tag for file uploads.
         add_action( 'comment_form_top', function() {
+            static $done = false;
+            if ( $done ) return;
+            $done = true;
             echo '<script>document.addEventListener("DOMContentLoaded",function(){var f=document.getElementById("commentform");if(f)f.enctype="multipart/form-data";});</script>';
         });
 
         comment_form( $comment_form, $product->get_id() );
+
+        // Re-add the hooks so the native WooCommerce review form still works
+        // if it's rendered elsewhere on the page.
+        if ( $reviews_module ) {
+            add_action( 'comment_form_logged_in_after', [ $reviews_module, 'add_review_fields' ] );
+            add_action( 'comment_form_after_fields', [ $reviews_module, 'add_review_fields' ] );
+        }
     }
 
     private function render_editor_preview( $settings, $review_settings ) {
         ?>
-        <div class="kdna-review-form-preview" style="max-width:600px;">
+        <div class="kdna-review-form-preview">
             <?php if ( $settings['show_rating'] === 'yes' ) : ?>
-            <div class="kdna-form-rating-field" style="margin-bottom:12px;">
-                <label style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Your Rating', 'kdna-ecommerce' ); ?> <span style="color:red;">*</span></label>
+            <div class="kdna-form-field kdna-form-rating-field">
+                <label><?php esc_html_e( 'Your Rating', 'kdna-ecommerce' ); ?> <span class="required">*</span></label>
                 <div class="kdna-star-rating-input">
                     <?php for ( $i = 5; $i >= 1; $i-- ) : ?>
                     <input type="radio" name="preview_rating" value="<?php echo $i; ?>" id="preview_rating_<?php echo $i; ?>" <?php echo $i === 5 ? 'checked' : ''; ?>>
@@ -345,32 +505,35 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
             <?php endif; ?>
 
             <?php if ( $settings['show_title_field'] === 'yes' ) : ?>
-            <p style="margin-bottom:12px;">
-                <label style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Review Title', 'kdna-ecommerce' ); ?></label>
-                <input type="text" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:3px;" disabled>
-            </p>
+            <div class="kdna-form-field">
+                <label><?php esc_html_e( 'Review Title', 'kdna-ecommerce' ); ?></label>
+                <input type="text" style="width:100%;box-sizing:border-box;" disabled>
+            </div>
             <?php endif; ?>
 
-            <p style="margin-bottom:12px;">
-                <label style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Your Review', 'kdna-ecommerce' ); ?> <span style="color:red;">*</span></label>
-                <textarea rows="5" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:3px;" disabled></textarea>
-            </p>
+            <div class="kdna-form-field comment-form-comment">
+                <label><?php esc_html_e( 'Your Review', 'kdna-ecommerce' ); ?> <span class="required">*</span></label>
+                <textarea rows="5" style="width:100%;box-sizing:border-box;" disabled></textarea>
+            </div>
 
             <?php if ( $settings['show_photos_field'] === 'yes' ) : ?>
-            <p style="margin-bottom:12px;">
-                <label style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Upload Photos', 'kdna-ecommerce' ); ?></label>
+            <div class="kdna-form-field">
+                <label><?php esc_html_e( 'Upload Photos', 'kdna-ecommerce' ); ?></label>
                 <input type="file" disabled>
-            </p>
+            </div>
             <?php endif; ?>
 
             <?php if ( $settings['show_video_field'] === 'yes' ) : ?>
-            <p style="margin-bottom:12px;">
-                <label style="display:block;font-weight:600;margin-bottom:4px;"><?php esc_html_e( 'Video URL', 'kdna-ecommerce' ); ?></label>
-                <input type="url" style="width:100%;padding:8px;border:1px solid #ddd;border-radius:3px;" placeholder="https://www.youtube.com/watch?v=..." disabled>
-            </p>
+            <div class="kdna-form-field">
+                <label><?php esc_html_e( 'Video URL', 'kdna-ecommerce' ); ?></label>
+                <input type="url" style="width:100%;box-sizing:border-box;" placeholder="https://..." disabled>
+                <p class="description"><?php esc_html_e( 'Supports YouTube, Vimeo, Dailymotion, and other oEmbed-compatible video URLs.', 'kdna-ecommerce' ); ?></p>
+            </div>
             <?php endif; ?>
 
-            <button class="submit" style="padding:10px 24px;cursor:pointer;" disabled><?php esc_html_e( 'Submit Review', 'kdna-ecommerce' ); ?></button>
+            <div class="form-submit" style="margin-top:16px;">
+                <input type="submit" value="<?php esc_attr_e( 'Submit Review', 'kdna-ecommerce' ); ?>" disabled>
+            </div>
         </div>
         <?php
     }
