@@ -77,6 +77,11 @@ class KDNA_Ecommerce_Suite {
         if ( $this->is_module_active( 'points_rewards' ) ) {
             require_once KDNA_ECOMMERCE_PATH . 'modules/points-rewards/class-kdna-points-rewards.php';
             $this->modules['points_rewards'] = new KDNA_Points_Rewards();
+
+            if ( is_admin() ) {
+                require_once KDNA_ECOMMERCE_PATH . 'includes/class-kdna-points-admin.php';
+                new KDNA_Points_Admin();
+            }
         }
 
         if ( $this->is_module_active( 'reviews' ) ) {

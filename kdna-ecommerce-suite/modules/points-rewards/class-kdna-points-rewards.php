@@ -887,6 +887,27 @@ class KDNA_Points_Rewards {
             return;
         }
         wp_enqueue_style( 'kdna-points-frontend', KDNA_ECOMMERCE_URL . 'assets/css/points-rewards.css', [], KDNA_ECOMMERCE_VERSION );
+
+        // Enqueue variable product points JS.
+        if ( is_product() && is_user_logged_in() ) {
+            global $product;
+            if ( ! $product ) {
+                $product = wc_get_product( get_the_ID() );
+            }
+            if ( $product && $product->is_type( 'variable' ) ) {
+                wp_enqueue_script( 'kdna-points-variable', KDNA_ECOMMERCE_URL . 'assets/js/points-variable.js', [ 'jquery' ], KDNA_ECOMMERCE_VERSION, true );
+                wp_localize_script( 'kdna-points-variable', 'kdna_points_var', [
+                    'earn_points'           => $this->settings['earn_points'],
+                    'earn_monetary'         => $this->settings['earn_monetary'],
+                    'rounding_mode'         => $this->settings['rounding_mode'],
+                    'tax_setting'           => $this->settings['tax_setting'],
+                    'variable_message'      => $this->settings['variable_product_message'],
+                    'single_message'        => $this->settings['product_message'],
+                    'points_label'          => $this->settings['points_label_plural'],
+                    'points_label_singular' => $this->settings['points_label_singular'],
+                ] );
+            }
+        }
     }
 
     // ─── Helpers ───

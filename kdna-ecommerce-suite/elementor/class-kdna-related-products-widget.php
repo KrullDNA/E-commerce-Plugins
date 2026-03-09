@@ -312,14 +312,19 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
 
     private function render_default_cards( $product_ids ) {
         // Use WooCommerce's native product content template for proper theme compatibility.
-        // This ensures add-to-cart buttons, prices, etc. are rendered with WC classes and
-        // the theme's CSS is properly applied.
+        // The output must be wrapped in .woocommerce ul.products so theme CSS selectors
+        // (e.g. `.woocommerce ul.products li.product .button`) apply correctly.
         global $post, $product;
         $original_post = $post;
         $original_product = $product;
 
-        // Wrap in woocommerce class for theme CSS to apply.
-        echo '<style>.kdna-related-grid .product { list-style: none; }</style>';
+        echo '<style>'
+            . '.kdna-related-grid .woocommerce ul.products { display: contents; }'
+            . '.kdna-related-grid .product { list-style: none; }'
+            . '</style>';
+
+        // Wrap in .woocommerce > ul.products for full theme selector compatibility.
+        echo '<div class="woocommerce"><ul class="products columns-' . count( $product_ids ) . '">';
 
         foreach ( $product_ids as $product_id ) {
             $product_obj = wc_get_product( $product_id );
@@ -331,11 +336,10 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
             setup_postdata( $post );
             $GLOBALS['product'] = $product_obj;
 
-            // Use WooCommerce's content-product template for full theme compatibility.
-            echo '<div class="kdna-related-grid-item">';
             wc_get_template_part( 'content', 'product' );
-            echo '</div>';
         }
+
+        echo '</ul></div>';
 
         // Restore globals.
         $post = $original_post;
