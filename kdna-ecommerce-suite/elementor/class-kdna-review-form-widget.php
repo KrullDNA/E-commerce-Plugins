@@ -291,6 +291,11 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
         $this->end_controls_section();
 
         // Style - Submit Button
+        // NOTE: We use individual controls with !important instead of Group_Control_Typography
+        // because themes often use high-specificity selectors on submit buttons that override
+        // Elementor's generated CSS. Group controls don't support !important.
+        $btn_sel = '{{WRAPPER}} .kdna-review-form-container .form-submit input[type="submit"]';
+
         $this->start_controls_section( 'button_style', [
             'label' => __( 'Submit Button', 'kdna-ecommerce' ),
             'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
@@ -299,44 +304,77 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
         $this->add_control( 'button_bg', [
             'label'     => __( 'Background Color', 'kdna-ecommerce' ),
             'type'      => \Elementor\Controls_Manager::COLOR,
-            'selectors' => [
-                '{{WRAPPER}} .kdna-review-form-container input[type="submit"]' => 'background-color: {{VALUE}} !important; border-color: {{VALUE}} !important;',
-                '{{WRAPPER}} .kdna-review-form-container .form-submit input' => 'background-color: {{VALUE}} !important; border-color: {{VALUE}} !important;',
-            ],
+            'selectors' => [ $btn_sel => 'background-color: {{VALUE}} !important; border-color: {{VALUE}} !important;' ],
         ]);
 
         $this->add_control( 'button_text_color', [
             'label'     => __( 'Text Color', 'kdna-ecommerce' ),
             'type'      => \Elementor\Controls_Manager::COLOR,
-            'selectors' => [
-                '{{WRAPPER}} .kdna-review-form-container input[type="submit"]' => 'color: {{VALUE}} !important;',
-                '{{WRAPPER}} .kdna-review-form-container .form-submit input' => 'color: {{VALUE}} !important;',
-            ],
+            'selectors' => [ $btn_sel => 'color: {{VALUE}} !important;' ],
         ]);
 
         $this->add_responsive_control( 'button_padding', [
             'label'      => __( 'Padding', 'kdna-ecommerce' ),
             'type'       => \Elementor\Controls_Manager::DIMENSIONS,
             'size_units' => [ 'px', 'em' ],
-            'selectors'  => [
-                '{{WRAPPER}} .kdna-review-form-container input[type="submit"]' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}} !important;',
-                '{{WRAPPER}} .kdna-review-form-container .form-submit input' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}} !important;',
-            ],
+            'selectors'  => [ $btn_sel => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}} !important;' ],
         ]);
 
         $this->add_control( 'button_border_radius', [
             'label'      => __( 'Border Radius', 'kdna-ecommerce' ),
             'type'       => \Elementor\Controls_Manager::SLIDER,
             'range'      => [ 'px' => [ 'min' => 0, 'max' => 30 ] ],
-            'selectors'  => [
-                '{{WRAPPER}} .kdna-review-form-container input[type="submit"]' => 'border-radius: {{SIZE}}{{UNIT}} !important;',
-                '{{WRAPPER}} .kdna-review-form-container .form-submit input' => 'border-radius: {{SIZE}}{{UNIT}} !important;',
-            ],
+            'selectors'  => [ $btn_sel => 'border-radius: {{SIZE}}{{UNIT}} !important;' ],
         ]);
 
-        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
-            'name'     => 'button_typography',
-            'selector' => '{{WRAPPER}} .kdna-review-form-container input[type="submit"], {{WRAPPER}} .kdna-review-form-container .form-submit input',
+        $this->add_control( 'button_font_size', [
+            'label'     => __( 'Font Size', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::SLIDER,
+            'range'     => [ 'px' => [ 'min' => 10, 'max' => 30 ] ],
+            'selectors' => [ $btn_sel => 'font-size: {{SIZE}}{{UNIT}} !important;' ],
+        ]);
+
+        $this->add_control( 'button_font_weight', [
+            'label'   => __( 'Font Weight', 'kdna-ecommerce' ),
+            'type'    => \Elementor\Controls_Manager::SELECT,
+            'default' => '',
+            'options' => [
+                ''    => __( 'Default', 'kdna-ecommerce' ),
+                '300' => '300',
+                '400' => '400 (Normal)',
+                '500' => '500',
+                '600' => '600 (Semi Bold)',
+                '700' => '700 (Bold)',
+                '800' => '800',
+            ],
+            'selectors' => [ $btn_sel => 'font-weight: {{VALUE}} !important;' ],
+        ]);
+
+        $this->add_control( 'button_text_transform', [
+            'label'   => __( 'Text Transform', 'kdna-ecommerce' ),
+            'type'    => \Elementor\Controls_Manager::SELECT,
+            'default' => '',
+            'options' => [
+                ''           => __( 'Default', 'kdna-ecommerce' ),
+                'none'       => __( 'None', 'kdna-ecommerce' ),
+                'uppercase'  => __( 'Uppercase', 'kdna-ecommerce' ),
+                'lowercase'  => __( 'Lowercase', 'kdna-ecommerce' ),
+                'capitalize' => __( 'Capitalize', 'kdna-ecommerce' ),
+            ],
+            'selectors' => [ $btn_sel => 'text-transform: {{VALUE}} !important;' ],
+        ]);
+
+        $this->add_control( 'button_letter_spacing', [
+            'label'     => __( 'Letter Spacing', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::SLIDER,
+            'range'     => [ 'px' => [ 'min' => -2, 'max' => 10, 'step' => 0.1 ] ],
+            'selectors' => [ $btn_sel => 'letter-spacing: {{SIZE}}{{UNIT}} !important;' ],
+        ]);
+
+        $this->add_control( 'button_width', [
+            'label'   => __( 'Full Width', 'kdna-ecommerce' ),
+            'type'    => \Elementor\Controls_Manager::SWITCHER,
+            'selectors' => [ $btn_sel => 'width: 100% !important;' ],
         ]);
 
         $this->end_controls_section();
@@ -531,9 +569,9 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
             </div>
             <?php endif; ?>
 
-            <div class="form-submit" style="margin-top:16px;">
-                <input type="submit" value="<?php esc_attr_e( 'Submit Review', 'kdna-ecommerce' ); ?>" disabled>
-            </div>
+            <p class="form-submit" style="margin-top:16px;">
+                <input type="submit" id="submit" class="submit" value="<?php esc_attr_e( 'Submit Review', 'kdna-ecommerce' ); ?>" disabled>
+            </p>
         </div>
         <?php
     }
