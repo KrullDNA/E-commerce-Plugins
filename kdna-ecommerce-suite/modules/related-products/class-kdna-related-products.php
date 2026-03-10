@@ -17,6 +17,17 @@ class KDNA_Related_Products {
 
         // Override WooCommerce related products
         add_filter( 'woocommerce_related_products', [ $this, 'get_custom_related_products' ], 10, 3 );
+
+        // Enqueue frontend assets
+        add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+    }
+
+    public function enqueue_assets() {
+        if ( ! is_product() && ! is_shop() && ! is_product_taxonomy() ) {
+            return;
+        }
+
+        wp_enqueue_style( 'kdna-related-products', KDNA_ECOMMERCE_URL . 'assets/css/related-products.css', [], KDNA_ECOMMERCE_VERSION );
     }
 
     public function add_related_products_field() {

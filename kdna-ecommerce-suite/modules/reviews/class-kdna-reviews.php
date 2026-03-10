@@ -35,11 +35,13 @@ class KDNA_Reviews {
         // Voting AJAX
         if ( $this->settings['enable_voting'] === 'yes' ) {
             add_action( 'wp_ajax_kdna_review_vote', [ $this, 'handle_vote' ] );
+            add_action( 'wp_ajax_nopriv_kdna_review_vote', [ $this, 'handle_vote' ] );
         }
 
         // Flagging AJAX
         if ( $this->settings['enable_flagging'] === 'yes' ) {
             add_action( 'wp_ajax_kdna_review_flag', [ $this, 'handle_flag' ] );
+            add_action( 'wp_ajax_nopriv_kdna_review_flag', [ $this, 'handle_flag' ] );
         }
 
         // Sort reviews by helpfulness
@@ -316,12 +318,15 @@ class KDNA_Reviews {
         $vote_type = sanitize_text_field( $_POST['vote_type'] ?? '' );
         $user_id = get_current_user_id();
 
-        if ( ! $comment_id || ! in_array( $vote_type, [ 'positive', 'negative' ], true ) || ! $user_id ) {
+        // Use user ID for logged-in users, IP hash for guests.
+        $voter_key = $user_id ? (string) $user_id : 'ip_' . md5( $_SERVER['REMOTE_ADDR'] ?? '' );
+
+        if ( ! $comment_id || ! in_array( $vote_type, [ 'positive', 'negative' ], true ) ) {
             wp_send_json_error();
         }
 
         $comment = get_comment( $comment_id );
-        if ( ! $comment || (int) $comment->user_id === $user_id ) {
+        if ( ! $comment || ( $user_id && (int) $comment->user_id === $user_id ) ) {
             wp_send_json_error( [ 'message' => __( 'Cannot vote on your own review.', 'kdna-ecommerce' ) ] );
         }
 
@@ -330,7 +335,7 @@ class KDNA_Reviews {
             $votes = [];
         }
 
-        $previous_vote = $votes[ $user_id ] ?? null;
+        $previous_vote = $votes[ $voter_key ] ?? null;
 
         // Remove previous vote
         if ( $previous_vote ) {
@@ -341,9 +346,9 @@ class KDNA_Reviews {
 
         // Toggle off if same vote
         if ( $previous_vote === $vote_type ) {
-            unset( $votes[ $user_id ] );
+            unset( $votes[ $voter_key ] );
         } else {
-            $votes[ $user_id ] = $vote_type;
+            $votes[ $voter_key ] = $vote_type;
             $meta_key = '_kdna_' . $vote_type . '_votes';
             $count = (int) get_comment_meta( $comment_id, $meta_key, true ) + 1;
             update_comment_meta( $comment_id, $meta_key, $count );
@@ -371,8 +376,12 @@ class KDNA_Reviews {
         $reason = sanitize_text_field( $_POST['reason'] ?? '' );
         $user_id = get_current_user_id();
 
-        if ( ! $comment_id || ! $user_id ) {
+        if ( ! $comment_id ) {
             wp_send_json_error();
+        }
+
+        if ( ! $user_id ) {
+            wp_send_json_error( [ 'message' => __( 'You must be logged in to report a review.', 'kdna-ecommerce' ) ] );
         }
 
         $comment = get_comment( $comment_id );
@@ -444,10 +453,14 @@ class KDNA_Reviews {
             'nonce'   => wp_create_nonce( 'kdna-reviews-nonce' ),
         ]);
 
-        // Ensure comment form supports file uploads
+        // Ensure comment form supports file uploads by tracking the form ID.
         add_filter( 'comment_form_defaults', function( $defaults ) {
-            if ( strpos( $defaults['id_form'] ?? '', 'commentform' ) !== false ) {
-                $defaults['id_form'] = $defaults['id_form'] ?? 'commentform';
+            // Inject enctype attribute into the form tag via the submit_field.
+            if ( ! empty( $defaults['submit_field'] ) && strpos( $defaults['submit_field'], 'enctype' ) === false ) {
+                // Store form ID so JS can target it.
+                wp_localize_script( 'kdna-reviews', 'kdnaReviewForm', [
+                    'formId' => $defaults['id_form'] ?? 'commentform',
+                ]);
             }
             return $defaults;
         });
