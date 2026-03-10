@@ -225,7 +225,7 @@ class KDNA_Rating_Summary_Widget extends \Elementor\Widget_Base {
         echo $link_open;
         echo '<div class="kdna-rating-summary" style="display:inline-flex;align-items:center;flex-direction:' . $direction . ';gap:' . $gap . ';">';
 
-        if ( $settings['show_average_number'] === 'yes' ) {
+        if ( $settings['show_average_number'] === 'yes' && $count > 0 ) {
             echo '<span class="kdna-average-number" style="font-weight:700;line-height:1;">' . number_format( $avg, 1 ) . '</span>';
         }
 
