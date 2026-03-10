@@ -290,11 +290,10 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
     }
 
     private function render_with_loop_template( $product_ids, $template_id ) {
-        // Explicitly enqueue the Elementor template's CSS so styles aren't stripped on the frontend.
-        if ( class_exists( '\Elementor\Core\Files\CSS\Post' ) ) {
-            $css_file = new \Elementor\Core\Files\CSS\Post( $template_id );
-            $css_file->enqueue();
-        }
+        // $with_css = true on the first iteration so the loop template's CSS
+        // is printed inline.  wp_enqueue_style() alone doesn't work here because
+        // the widget renders after wp_head() has already been output.
+        $include_css = true;
 
         foreach ( $product_ids as $product_id ) {
             $product_obj = wc_get_product( $product_id );
@@ -313,7 +312,8 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
             $GLOBALS['product'] = $product_obj;
 
             echo '<div class="kdna-related-grid-item">';
-            echo \Elementor\Plugin::$instance->frontend->get_builder_content_for_display( $template_id );
+            echo \Elementor\Plugin::$instance->frontend->get_builder_content_for_display( $template_id, $include_css );
+            $include_css = false; // Only print CSS once
             echo '</div>';
 
             // Restore
