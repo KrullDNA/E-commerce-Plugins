@@ -155,12 +155,15 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
             'label'     => __( 'Card Background', 'kdna-ecommerce' ),
             'type'      => \Elementor\Controls_Manager::COLOR,
             'default'   => '#fff',
-            'selectors' => [ '{{WRAPPER}} .kdna-related-product-card' => 'background-color: {{VALUE}};' ],
+            'selectors' => [
+                '{{WRAPPER}} li.product' => 'background-color: {{VALUE}};',
+                '{{WRAPPER}} .kdna-related-grid-item' => 'background-color: {{VALUE}};',
+            ],
         ]);
 
         $this->add_group_control( \Elementor\Group_Control_Border::get_type(), [
             'name'     => 'card_border',
-            'selector' => '{{WRAPPER}} .kdna-related-product-card',
+            'selector' => '{{WRAPPER}} li.product, {{WRAPPER}} .kdna-related-grid-item',
         ]);
 
         $this->add_control( 'card_border_radius', [
@@ -168,12 +171,15 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
             'type'       => \Elementor\Controls_Manager::DIMENSIONS,
             'size_units' => [ 'px' ],
             'default'    => [ 'top' => '8', 'right' => '8', 'bottom' => '8', 'left' => '8', 'unit' => 'px' ],
-            'selectors'  => [ '{{WRAPPER}} .kdna-related-product-card' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+            'selectors'  => [
+                '{{WRAPPER}} li.product' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-related-grid-item' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+            ],
         ]);
 
         $this->add_group_control( \Elementor\Group_Control_Box_Shadow::get_type(), [
             'name'     => 'card_shadow',
-            'selector' => '{{WRAPPER}} .kdna-related-product-card',
+            'selector' => '{{WRAPPER}} li.product, {{WRAPPER}} .kdna-related-grid-item',
         ]);
 
         $this->add_responsive_control( 'card_padding', [
@@ -181,27 +187,33 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
             'type'       => \Elementor\Controls_Manager::DIMENSIONS,
             'size_units' => [ 'px', 'em' ],
             'default'    => [ 'top' => '0', 'right' => '0', 'bottom' => '12', 'left' => '0', 'unit' => 'px' ],
-            'selectors'  => [ '{{WRAPPER}} .kdna-related-product-card' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+            'selectors'  => [
+                '{{WRAPPER}} li.product' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-related-grid-item' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+            ],
         ]);
 
         $this->add_control( 'card_product_title_color', [
             'label'     => __( 'Product Title Color', 'kdna-ecommerce' ),
             'type'      => \Elementor\Controls_Manager::COLOR,
             'default'   => '#333',
-            'selectors' => [ '{{WRAPPER}} .kdna-related-product-card .kdna-product-title a' => 'color: {{VALUE}};' ],
+            'selectors' => [
+                '{{WRAPPER}} li.product .woocommerce-loop-product__title' => 'color: {{VALUE}};',
+                '{{WRAPPER}} li.product a' => 'color: {{VALUE}};',
+            ],
         ]);
 
         $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
             'name'     => 'card_product_title_typography',
             'label'    => __( 'Product Title Typography', 'kdna-ecommerce' ),
-            'selector' => '{{WRAPPER}} .kdna-related-product-card .kdna-product-title',
+            'selector' => '{{WRAPPER}} li.product .woocommerce-loop-product__title',
         ]);
 
         $this->add_control( 'card_price_color', [
             'label'     => __( 'Price Color', 'kdna-ecommerce' ),
             'type'      => \Elementor\Controls_Manager::COLOR,
             'default'   => '#333',
-            'selectors' => [ '{{WRAPPER}} .kdna-related-product-card .kdna-product-price' => 'color: {{VALUE}};' ],
+            'selectors' => [ '{{WRAPPER}} li.product .price' => 'color: {{VALUE}};' ],
         ]);
 
         $this->add_control( 'card_image_border_radius', [
@@ -209,7 +221,10 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
             'type'       => \Elementor\Controls_Manager::DIMENSIONS,
             'size_units' => [ 'px' ],
             'default'    => [ 'top' => '8', 'right' => '8', 'bottom' => '0', 'left' => '0', 'unit' => 'px' ],
-            'selectors'  => [ '{{WRAPPER}} .kdna-related-product-card img' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+            'selectors'  => [
+                '{{WRAPPER}} li.product img' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+                '{{WRAPPER}} .kdna-related-grid-item img' => 'border-radius: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};',
+            ],
         ]);
 
         $this->end_controls_section();

@@ -46,13 +46,61 @@
 .kdna-qualifier .stars {
     color: #f0ad4e;
 }
+/* Elementor widget – review items */
+.kdna-review-item {
+    border-bottom: 1px solid #eee;
+    padding: 16px 0;
+}
+.kdna-review-item-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+.kdna-review-item-title {
+    font-weight: 600;
+}
+.kdna-review-item-photos {
+    display: flex;
+    gap: 8px;
+    margin: 8px 0;
+}
+.kdna-review-item-photos img {
+    object-fit: cover;
+}
+.kdna-review-item-video {
+    max-width: 400px;
+    margin: 8px 0;
+}
+.kdna-review-item-meta {
+    font-size: 0.85em;
+    margin-top: 6px;
+    color: #999;
+}
+.kdna-reviews-summary-inner {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+.kdna-average-rating {
+    font-weight: 700;
+    line-height: 1;
+}
+.kdna-review-stars {
+    font-size: 1.2em;
+}
+.kdna-review-count {
+    margin-top: 4px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+/* Voting */
 .kdna-review-voting {
     display: flex;
     align-items: center;
     gap: 8px;
-    margin-top: 1em;
-    padding-top: 0.75em;
-    border-top: 1px solid #eee;
+    margin-top: 8px;
     font-size: 0.9em;
 }
 .kdna-vote-btn {
@@ -61,7 +109,7 @@
     border-radius: 3px;
     padding: 4px 10px;
     cursor: pointer;
-    transition: background 0.2s;
+    transition: background 0.2s, color 0.2s;
 }
 .kdna-vote-btn:hover {
     background: #f5f5f5;

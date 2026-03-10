@@ -1,4 +1,4 @@
-/* Related Products – default card layout */
+/* Related Products – base layout */
 .kdna-related-products-widget {
     margin: 2em 0;
 }
@@ -10,30 +10,31 @@
     grid-template-columns: repeat(4, 1fr);
     gap: 20px;
 }
-.kdna-related-grid .woocommerce ul.products {
+
+/* Default WooCommerce layout: flatten the nesting so products
+   become direct grid children via display:contents. */
+.kdna-related-grid > .woocommerce {
     display: contents;
 }
-.kdna-related-grid .product {
+.kdna-related-grid .woocommerce ul.products {
+    display: contents;
+    margin: 0;
+    padding: 0;
+}
+.kdna-related-grid .woocommerce ul.products li.product {
     list-style: none;
+    margin: 0;
+    padding: 0;
+    width: auto !important;   /* Override WooCommerce inline width */
+    float: none !important;   /* Override WooCommerce float layout */
 }
-.kdna-related-product-card {
-    overflow: hidden;
-}
-.kdna-related-product-card img {
+.kdna-related-grid .woocommerce ul.products li.product img {
     width: 100%;
     height: auto;
     display: block;
 }
-.kdna-related-product-card .kdna-product-title {
-    margin: 10px 0 4px;
-}
-.kdna-related-product-card .kdna-product-title a {
-    text-decoration: none;
-    color: inherit;
-}
-.kdna-related-product-card .kdna-product-price {
-    font-weight: 600;
-}
+
+/* Loop template items */
 .kdna-related-grid-item {
     min-width: 0;
 }
