@@ -1,10 +1,10 @@
 <?php
 /**
- * Plugin Name: KDNA E-Commerce Suite
+ * Plugin Name: E-commerce Suite
  * Plugin URI: https://kdnastaging2.com
  * Description: All-in-one WooCommerce enhancement suite: Points & Rewards, Product Reviews, Related Products, Sequential Order Numbers, Australia Post Shipping, and Shipment Tracking.
  * Version: 1.0.0
- * Author: KDNA
+ * Author: Krull D+A
  * Author URI: https://kdnastaging2.com
  * Text Domain: kdna-ecommerce
  * Requires Plugins: woocommerce
