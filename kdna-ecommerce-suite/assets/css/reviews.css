@@ -181,7 +181,7 @@
 .kdna-review-form-container #respond .form-submit input#submit[type="submit"],
 .kdna-review-form-container .kdna-review-form-preview .form-submit input#submit[type="submit"] {
     padding: 12px 28px !important;
-    font-weight: 600 !important;
+    font-weight: 400 !important;
     font-size: 15px !important;
     line-height: 1.4 !important;
     letter-spacing: 0.5px !important;
