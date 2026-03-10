@@ -48,7 +48,7 @@ class KDNA_Admin {
     }
 
     public function sanitize_modules( $input ) {
-        $modules = [ 'points_rewards', 'reviews', 'related_products', 'sequential_orders' ];
+        $modules = [ 'points_rewards', 'reviews', 'related_products', 'sequential_orders', 'australia_post', 'shipment_tracking' ];
         $output = [];
         foreach ( $modules as $module ) {
             $output[ $module ] = isset( $input[ $module ] ) ? 'yes' : 'no';
@@ -137,6 +137,12 @@ class KDNA_Admin {
                 <a href="?page=kdna-ecommerce&tab=sequential" class="nav-tab <?php echo $active_tab === 'sequential' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Sequential Orders', 'kdna-ecommerce' ); ?>
                 </a>
+                <a href="?page=kdna-ecommerce&tab=australia_post" class="nav-tab <?php echo $active_tab === 'australia_post' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Australia Post', 'kdna-ecommerce' ); ?>
+                </a>
+                <a href="?page=kdna-ecommerce&tab=tracking" class="nav-tab <?php echo $active_tab === 'tracking' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Shipment Tracking', 'kdna-ecommerce' ); ?>
+                </a>
             </nav>
 
             <div class="kdna-tab-content">
@@ -153,6 +159,12 @@ class KDNA_Admin {
                         break;
                     case 'sequential':
                         $this->render_sequential_tab( $modules );
+                        break;
+                    case 'australia_post':
+                        $this->render_australia_post_tab( $modules );
+                        break;
+                    case 'tracking':
+                        $this->render_tracking_tab( $modules );
                         break;
                     default:
                         $this->render_general_tab( $modules );
@@ -207,6 +219,26 @@ class KDNA_Admin {
                             <span class="kdna-toggle-slider"></span>
                         </label>
                         <p class="description"><?php esc_html_e( 'Custom sequential order numbers with prefix, suffix, and padding options.', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Australia Post Shipping', 'kdna-ecommerce' ); ?></th>
+                    <td>
+                        <label class="kdna-toggle">
+                            <input type="checkbox" name="kdna_ecommerce_modules[australia_post]" value="1" <?php checked( $modules['australia_post'] ?? 'no', 'yes' ); ?>>
+                            <span class="kdna-toggle-slider"></span>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Live Australia Post shipping rates via their API. Configure in WooCommerce > Settings > Shipping.', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Shipment Tracking', 'kdna-ecommerce' ); ?></th>
+                    <td>
+                        <label class="kdna-toggle">
+                            <input type="checkbox" name="kdna_ecommerce_modules[shipment_tracking]" value="1" <?php checked( $modules['shipment_tracking'] ?? 'no', 'yes' ); ?>>
+                            <span class="kdna-toggle-slider"></span>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Add tracking numbers to orders, displayed on the order page and in customer emails.', 'kdna-ecommerce' ); ?></p>
                     </td>
                 </tr>
             </table>
@@ -835,6 +867,121 @@ class KDNA_Admin {
             </table>
             <?php submit_button(); ?>
         </form>
+        <?php
+    }
+
+    private function render_australia_post_tab( $modules ) {
+        $is_active = ( $modules['australia_post'] ?? 'no' ) === 'yes';
+        ?>
+        <?php if ( ! $is_active ) : ?>
+            <div class="notice notice-warning inline" style="margin-top:15px;">
+                <p><?php esc_html_e( 'The Australia Post module is currently disabled. Enable it in the General tab.', 'kdna-ecommerce' ); ?></p>
+            </div>
+        <?php endif; ?>
+
+        <div class="kdna-module-info" style="margin-top:15px;">
+            <h2><?php esc_html_e( 'Australia Post Shipping', 'kdna-ecommerce' ); ?></h2>
+            <p><?php esc_html_e( 'This module adds an Australia Post shipping method to WooCommerce. Once enabled, configure it via:', 'kdna-ecommerce' ); ?></p>
+            <ol>
+                <li><?php
+                    printf(
+                        wp_kses(
+                            __( 'Go to <strong>WooCommerce &gt; Settings &gt; Shipping</strong> and edit a shipping zone (or add a new one).', 'kdna-ecommerce' ),
+                            array( 'strong' => array() )
+                        )
+                    );
+                ?></li>
+                <li><?php
+                    printf(
+                        wp_kses(
+                            __( 'Click <strong>Add shipping method</strong> and select <strong>Australia Post</strong>.', 'kdna-ecommerce' ),
+                            array( 'strong' => array() )
+                        )
+                    );
+                ?></li>
+                <li><?php esc_html_e( 'Configure your origin postcode, packing method, enabled services, and other options.', 'kdna-ecommerce' ); ?></li>
+            </ol>
+
+            <h3><?php esc_html_e( 'Global API Settings', 'kdna-ecommerce' ); ?></h3>
+            <p><?php
+                printf(
+                    wp_kses(
+                        __( 'The global API key and debug settings are configured in the shipping method\'s global settings at <strong>WooCommerce &gt; Settings &gt; Shipping &gt; Australia Post</strong> (click the method name at the top of the Shipping tab).', 'kdna-ecommerce' ),
+                        array( 'strong' => array() )
+                    )
+                );
+            ?></p>
+
+            <h3><?php esc_html_e( 'Features', 'kdna-ecommerce' ); ?></h3>
+            <ul style="list-style:disc; padding-left:20px;">
+                <li><?php esc_html_e( 'Live rates from the Australia Post Postage Assessment Calculator API', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'Domestic services: Regular/Parcel Post, Express Post, Courier Post', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'International services: Standard, Express, Courier, Economy Air, Economy Sea', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'Three packing methods: per-item, weight-based, or box packing', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'Custom box sizes with inner/outer dimensions', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'Default satchel sizes included', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'Extra Cover and Signature on Delivery options', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'Per-service price adjustments (flat or percentage)', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'Tax-exclusive rate calculation option', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'Response caching for performance', 'kdna-ecommerce' ); ?></li>
+            </ul>
+        </div>
+        <?php
+    }
+
+    private function render_tracking_tab( $modules ) {
+        $is_active = ( $modules['shipment_tracking'] ?? 'no' ) === 'yes';
+        ?>
+        <?php if ( ! $is_active ) : ?>
+            <div class="notice notice-warning inline" style="margin-top:15px;">
+                <p><?php esc_html_e( 'The Shipment Tracking module is currently disabled. Enable it in the General tab.', 'kdna-ecommerce' ); ?></p>
+            </div>
+        <?php endif; ?>
+
+        <div class="kdna-module-info" style="margin-top:15px;">
+            <h2><?php esc_html_e( 'Shipment Tracking', 'kdna-ecommerce' ); ?></h2>
+            <p><?php esc_html_e( 'This module adds shipment tracking to individual WooCommerce orders. Once enabled:', 'kdna-ecommerce' ); ?></p>
+            <ol>
+                <li><?php
+                    printf(
+                        wp_kses(
+                            __( 'Edit any order and use the <strong>Shipment Tracking</strong> metabox on the right side to add tracking numbers.', 'kdna-ecommerce' ),
+                            array( 'strong' => array() )
+                        )
+                    );
+                ?></li>
+                <li><?php esc_html_e( 'Choose from a built-in list of shipping providers or enter a custom provider with tracking URL.', 'kdna-ecommerce' ); ?></li>
+                <li><?php esc_html_e( 'Multiple tracking numbers can be added per order.', 'kdna-ecommerce' ); ?></li>
+            </ol>
+
+            <h3><?php esc_html_e( 'Email Integration', 'kdna-ecommerce' ); ?></h3>
+            <p><?php esc_html_e( 'Tracking information is automatically included in WooCommerce order emails (including the Completed order email). When you mark an order as complete, the customer receives their tracking details.', 'kdna-ecommerce' ); ?></p>
+
+            <h3><?php esc_html_e( 'Customer View', 'kdna-ecommerce' ); ?></h3>
+            <p><?php esc_html_e( 'Customers can view tracking information on their My Account > View Order page with direct links to the carrier tracking page.', 'kdna-ecommerce' ); ?></p>
+
+            <h3><?php esc_html_e( 'Supported Providers', 'kdna-ecommerce' ); ?></h3>
+            <p><?php esc_html_e( 'Built-in support for providers including:', 'kdna-ecommerce' ); ?></p>
+            <ul style="list-style:disc; padding-left:20px; column-count:3;">
+                <li>Australia Post</li>
+                <li>Aramex</li>
+                <li>Canada Post</li>
+                <li>DHL</li>
+                <li>DPD</li>
+                <li>EVRi</li>
+                <li>FedEx</li>
+                <li>Fastway</li>
+                <li>NZ Post</li>
+                <li>PostNL</li>
+                <li>Royal Mail</li>
+                <li>Sendle</li>
+                <li>StarTrack</li>
+                <li>TNT Express</li>
+                <li>UPS</li>
+                <li>USPS</li>
+            </ul>
+            <p><?php esc_html_e( 'Plus many more regional providers. Custom providers can be added per-order.', 'kdna-ecommerce' ); ?></p>
+        </div>
         <?php
     }
 }
