@@ -328,13 +328,13 @@ class KDNA_Review_Form_Widget extends \Elementor\Widget_Base {
         $this->end_controls_section();
 
         // Style - Submit Button
-        // NOTE: We use individual controls with !important instead of Group_Control_Typography
-        // because themes often use high-specificity selectors on submit buttons that override
-        // Elementor's generated CSS. Group controls don't support !important.
-        // Use #respond in the selector chain for maximum specificity — WordPress comment_form()
-        // wraps in <div id="respond"> and themes target #respond input[type="submit"].
-        // For editor preview, also target .kdna-review-form-preview .form-submit input.
-        $btn_sel = '{{WRAPPER}} .kdna-review-form-container #respond .form-submit input[type="submit"], {{WRAPPER}} .kdna-review-form-container .kdna-review-form-preview .form-submit input[type="submit"]';
+        // WooCommerce's woocommerce.css targets `#respond input#submit` (2 IDs).
+        // We MUST include both #respond AND #submit in our selector so our
+        // specificity (2 IDs + classes) beats theirs.  Combined with !important
+        // this guarantees our values win.
+        // For the editor preview (no #respond), target via .kdna-review-form-preview
+        // with input#submit for equal specificity against any global #submit rules.
+        $btn_sel = '{{WRAPPER}} .kdna-review-form-container #respond .form-submit input#submit[type="submit"], {{WRAPPER}} .kdna-review-form-container .kdna-review-form-preview .form-submit input#submit[type="submit"]';
 
         $this->start_controls_section( 'button_style', [
             'label' => __( 'Submit Button', 'kdna-ecommerce' ),
