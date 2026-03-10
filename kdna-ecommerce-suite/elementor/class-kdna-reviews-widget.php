@@ -23,6 +23,14 @@ class KDNA_Reviews_Widget extends \Elementor\Widget_Base {
         return [ 'reviews', 'woocommerce', 'ratings', 'kdna' ];
     }
 
+    public function get_style_depends() {
+        return [ 'kdna-reviews' ];
+    }
+
+    public function get_script_depends() {
+        return [ 'kdna-reviews' ];
+    }
+
     protected function register_controls() {
 
         // Content
@@ -231,6 +239,49 @@ class KDNA_Reviews_Widget extends \Elementor\Widget_Base {
             'selectors' => [ '{{WRAPPER}} .kdna-vote-btn:hover' => 'color: {{VALUE}}; border-color: {{VALUE}};' ],
         ]);
 
+        $this->add_control( 'vote_btn_bg', [
+            'label'     => __( 'Button Background', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::COLOR,
+            'selectors' => [ '{{WRAPPER}} .kdna-vote-btn' => 'background-color: {{VALUE}};' ],
+        ]);
+
+        $this->add_responsive_control( 'vote_btn_padding', [
+            'label'      => __( 'Button Padding', 'kdna-ecommerce' ),
+            'type'       => \Elementor\Controls_Manager::DIMENSIONS,
+            'size_units' => [ 'px', 'em' ],
+            'default'    => [ 'top' => '4', 'right' => '10', 'bottom' => '4', 'left' => '10', 'unit' => 'px' ],
+            'selectors'  => [ '{{WRAPPER}} .kdna-vote-btn' => 'padding: {{TOP}}{{UNIT}} {{RIGHT}}{{UNIT}} {{BOTTOM}}{{UNIT}} {{LEFT}}{{UNIT}};' ],
+        ]);
+
+        $this->add_control( 'vote_btn_border_radius', [
+            'label'      => __( 'Button Border Radius', 'kdna-ecommerce' ),
+            'type'       => \Elementor\Controls_Manager::SLIDER,
+            'range'      => [ 'px' => [ 'min' => 0, 'max' => 20 ] ],
+            'default'    => [ 'size' => 3, 'unit' => 'px' ],
+            'selectors'  => [ '{{WRAPPER}} .kdna-vote-btn' => 'border-radius: {{SIZE}}{{UNIT}};' ],
+        ]);
+
+        $this->end_controls_section();
+
+        // Style - Review Title
+        $this->start_controls_section( 'review_title_style_section', [
+            'label' => __( 'Review Title', 'kdna-ecommerce' ),
+            'tab'   => \Elementor\Controls_Manager::TAB_STYLE,
+        ]);
+
+        $this->add_group_control( \Elementor\Group_Control_Typography::get_type(), [
+            'name'     => 'review_item_title_typo',
+            'label'    => __( 'Typography', 'kdna-ecommerce' ),
+            'selector' => '{{WRAPPER}} .kdna-review-item-title',
+        ]);
+
+        $this->add_control( 'review_item_title_color', [
+            'label'     => __( 'Color', 'kdna-ecommerce' ),
+            'type'      => \Elementor\Controls_Manager::COLOR,
+            'default'   => '#333',
+            'selectors' => [ '{{WRAPPER}} .kdna-review-item-title' => 'color: {{VALUE}};' ],
+        ]);
+
         $this->end_controls_section();
     }
 
@@ -277,11 +328,11 @@ class KDNA_Reviews_Widget extends \Elementor\Widget_Base {
 
         ?>
         <div class="kdna-reviews-summary">
-            <div style="display:flex;align-items:center;gap:16px;">
-                <span class="kdna-average-rating" style="font-weight:700;line-height:1;"><?php echo number_format( $avg, 1 ); ?></span>
+            <div class="kdna-reviews-summary-inner">
+                <span class="kdna-average-rating"><?php echo number_format( $avg, 1 ); ?></span>
                 <div>
-                    <div class="kdna-review-stars" style="font-size:1.2em;"><?php echo $stars_filled . $stars_empty; ?></div>
-                    <div style="margin-top:4px;font-size:0.9em;color:#666;">
+                    <div class="kdna-review-stars"><?php echo $stars_filled . $stars_empty; ?></div>
+                    <div class="kdna-review-count">
                         <?php echo esc_html( sprintf( _n( '%d review', '%d reviews', $count, 'kdna-ecommerce' ), $count ) ); ?>
                     </div>
                 </div>
@@ -317,24 +368,24 @@ class KDNA_Reviews_Widget extends \Elementor\Widget_Base {
         $stars_filled = str_repeat( '&#9733;', $review['rating'] );
         $stars_empty = str_repeat( '&#9734;', 5 - $review['rating'] );
         ?>
-        <div class="kdna-review-item" style="border-bottom:1px solid;">
-            <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div class="kdna-review-item">
+            <div class="kdna-review-item-header">
                 <span class="kdna-review-stars"><?php echo $stars_filled . $stars_empty; ?></span>
                 <?php if ( $review['title'] ) : ?>
-                    <strong class="kdna-review-item-title"><?php echo esc_html( $review['title'] ); ?></strong>
+                    <span class="kdna-review-item-title"><?php echo esc_html( $review['title'] ); ?></span>
                 <?php endif; ?>
             </div>
 
             <div class="kdna-review-item-content"><?php echo wp_kses_post( wpautop( $review['content'] ) ); ?></div>
 
             <?php if ( $settings['show_photos'] === 'yes' && ! empty( $review['photos'] ) && is_array( $review['photos'] ) ) : ?>
-            <div class="kdna-review-item-photos" style="display:flex;gap:8px;margin:8px 0;">
+            <div class="kdna-review-item-photos">
                 <?php foreach ( $review['photos'] as $id ) :
                     $url = wp_get_attachment_url( $id );
                     $thumb = wp_get_attachment_image_url( $id, 'thumbnail' );
                     if ( $url ) : ?>
                     <a href="<?php echo esc_url( $url ); ?>" target="_blank">
-                        <img src="<?php echo esc_url( $thumb ?: $url ); ?>" alt="" style="object-fit:cover;" loading="lazy">
+                        <img src="<?php echo esc_url( $thumb ?: $url ); ?>" alt="" loading="lazy">
                     </a>
                     <?php endif; endforeach; ?>
             </div>
@@ -343,18 +394,18 @@ class KDNA_Reviews_Widget extends \Elementor\Widget_Base {
             <?php if ( ! empty( $review['video_url'] ) ) :
                 $embed = wp_oembed_get( $review['video_url'] );
                 if ( $embed ) : ?>
-                <div class="kdna-review-item-video" style="max-width:400px;margin:8px 0;"><?php echo $embed; ?></div>
+                <div class="kdna-review-item-video"><?php echo $embed; ?></div>
                 <?php endif; endif; ?>
 
-            <div class="kdna-review-item-meta" style="font-size:0.85em;margin-top:6px;">
+            <div class="kdna-review-item-meta">
                 <?php echo esc_html( $review['author'] ); ?> &mdash; <?php echo esc_html( date_i18n( get_option( 'date_format' ), strtotime( $review['date'] ) ) ); ?>
             </div>
 
             <?php if ( $settings['show_voting'] === 'yes' ) : ?>
-            <div class="kdna-review-voting" data-comment-id="<?php echo esc_attr( $review['id'] ); ?>" style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:0.9em;">
-                <span><?php esc_html_e( 'Helpful?', 'kdna-ecommerce' ); ?></span>
-                <button class="kdna-vote-btn kdna-vote-up" data-vote="positive" style="background:none;border:1px solid #ddd;border-radius:3px;padding:2px 8px;cursor:pointer;">&#9650; <span class="count"><?php echo $review['positive_votes']; ?></span></button>
-                <button class="kdna-vote-btn kdna-vote-down" data-vote="negative" style="background:none;border:1px solid #ddd;border-radius:3px;padding:2px 8px;cursor:pointer;">&#9660; <span class="count"><?php echo $review['negative_votes']; ?></span></button>
+            <div class="kdna-review-voting" data-comment-id="<?php echo esc_attr( $review['id'] ); ?>">
+                <span class="kdna-helpful-label"><?php esc_html_e( 'Helpful?', 'kdna-ecommerce' ); ?></span>
+                <button class="kdna-vote-btn kdna-vote-up" data-vote="positive">&#9650; <span class="count"><?php echo $review['positive_votes']; ?></span></button>
+                <button class="kdna-vote-btn kdna-vote-down" data-vote="negative">&#9660; <span class="count"><?php echo $review['negative_votes']; ?></span></button>
             </div>
             <?php endif; ?>
         </div>
@@ -364,21 +415,21 @@ class KDNA_Reviews_Widget extends \Elementor\Widget_Base {
     private function render_editor_preview() {
         ?>
         <div class="kdna-reviews-list">
-            <div class="kdna-review-item" style="border-bottom:1px solid #eee;padding:16px 0;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div class="kdna-review-item">
+                <div class="kdna-review-item-header">
                     <span class="kdna-review-stars">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
-                    <strong class="kdna-review-item-title">Great product!</strong>
+                    <span class="kdna-review-item-title">Great product!</span>
                 </div>
                 <div class="kdna-review-item-content"><p>This is an excellent product, highly recommended.</p></div>
-                <div class="kdna-review-item-meta" style="font-size:0.85em;color:#999;margin-top:6px;">John D. &mdash; <?php echo esc_html( date_i18n( get_option( 'date_format' ) ) ); ?></div>
+                <div class="kdna-review-item-meta">John D. &mdash; <?php echo esc_html( date_i18n( get_option( 'date_format' ) ) ); ?></div>
             </div>
-            <div class="kdna-review-item" style="border-bottom:1px solid #eee;padding:16px 0;">
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+            <div class="kdna-review-item">
+                <div class="kdna-review-item-header">
                     <span class="kdna-review-stars">&#9733;&#9733;&#9733;&#9733;&#9734;</span>
-                    <strong class="kdna-review-item-title">Very good quality</strong>
+                    <span class="kdna-review-item-title">Very good quality</span>
                 </div>
                 <div class="kdna-review-item-content"><p>Good value for money, would buy again.</p></div>
-                <div class="kdna-review-item-meta" style="font-size:0.85em;color:#999;margin-top:6px;">Jane S. &mdash; <?php echo esc_html( date_i18n( get_option( 'date_format' ) ) ); ?></div>
+                <div class="kdna-review-item-meta">Jane S. &mdash; <?php echo esc_html( date_i18n( get_option( 'date_format' ) ) ); ?></div>
             </div>
         </div>
         <?php

@@ -47,7 +47,9 @@ class KDNA_Reviews {
         // Sort reviews by helpfulness
         add_filter( 'comments_clauses', [ $this, 'sort_by_helpfulness' ], 10, 2 );
 
-        // Enqueue assets
+        // Register assets early so Elementor get_style_depends / get_script_depends can find handles.
+        add_action( 'wp_enqueue_scripts', [ $this, 'register_assets' ], 5 );
+        // Enqueue assets on product pages (non-Elementor contexts).
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
 
         // Handle file uploads
@@ -441,13 +443,21 @@ class KDNA_Reviews {
 
     // ─── Assets ───
 
+    /**
+     * Register asset handles so Elementor's get_style_depends / get_script_depends can resolve them.
+     */
+    public function register_assets() {
+        wp_register_style( 'kdna-reviews', KDNA_ECOMMERCE_URL . 'assets/css/reviews.css', [], KDNA_ECOMMERCE_VERSION );
+        wp_register_script( 'kdna-reviews', KDNA_ECOMMERCE_URL . 'assets/js/reviews.js', [ 'jquery' ], KDNA_ECOMMERCE_VERSION, true );
+    }
+
     public function enqueue_assets() {
         if ( ! is_product() ) {
             return;
         }
 
-        wp_enqueue_style( 'kdna-reviews', KDNA_ECOMMERCE_URL . 'assets/css/reviews.css', [], KDNA_ECOMMERCE_VERSION );
-        wp_enqueue_script( 'kdna-reviews', KDNA_ECOMMERCE_URL . 'assets/js/reviews.js', [ 'jquery' ], KDNA_ECOMMERCE_VERSION, true );
+        wp_enqueue_style( 'kdna-reviews' );
+        wp_enqueue_script( 'kdna-reviews' );
         wp_localize_script( 'kdna-reviews', 'kdnaReviews', [
             'ajaxUrl' => admin_url( 'admin-ajax.php' ),
             'nonce'   => wp_create_nonce( 'kdna-reviews-nonce' ),
