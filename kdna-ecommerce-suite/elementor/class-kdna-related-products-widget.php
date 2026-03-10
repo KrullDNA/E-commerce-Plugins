@@ -23,6 +23,10 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
         return [ 'related', 'products', 'woocommerce', 'loop', 'grid', 'kdna' ];
     }
 
+    public function get_style_depends() {
+        return [ 'kdna-related-products' ];
+    }
+
     protected function register_controls() {
 
         // Content Section
@@ -317,11 +321,6 @@ class KDNA_Related_Products_Widget extends \Elementor\Widget_Base {
         global $post, $product;
         $original_post = $post;
         $original_product = $product;
-
-        echo '<style>'
-            . '.kdna-related-grid .woocommerce ul.products { display: contents; }'
-            . '.kdna-related-grid .product { list-style: none; }'
-            . '</style>';
 
         // Wrap in .woocommerce > ul.products for full theme selector compatibility.
         echo '<div class="woocommerce"><ul class="products columns-' . count( $product_ids ) . '">';

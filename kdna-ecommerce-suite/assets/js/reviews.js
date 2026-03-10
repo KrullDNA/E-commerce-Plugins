@@ -1,8 +1,17 @@
 (function($) {
     'use strict';
 
-    // Ensure comment form has enctype for file uploads
-    $('#commentform').attr('enctype', 'multipart/form-data');
+    // Ensure comment form has enctype for file uploads.
+    // Use the form ID passed from PHP when available, fall back to common selectors.
+    var formId = (typeof kdnaReviewForm !== 'undefined' && kdnaReviewForm.formId)
+        ? '#' + kdnaReviewForm.formId
+        : '#commentform';
+    $(formId).attr('enctype', 'multipart/form-data');
+
+    // Fallback: if the form wasn't found by ID, try the review form container.
+    if (!$(formId).length) {
+        $('#review_form form, .comment-form, form.comment-form').first().attr('enctype', 'multipart/form-data');
+    }
 
     // Voting
     $(document).on('click', '.kdna-vote-btn', function(e) {
@@ -11,6 +20,11 @@
         var $wrapper = $btn.closest('.kdna-review-voting');
         var commentId = $wrapper.data('comment-id');
         var voteType = $btn.data('vote');
+
+        if ($btn.hasClass('kdna-vote-loading')) {
+            return;
+        }
+        $btn.addClass('kdna-vote-loading');
 
         $.post(kdnaReviews.ajaxUrl, {
             action: 'kdna_review_vote',
@@ -23,7 +37,13 @@
                 $wrapper.find('.kdna-vote-down .count').text(response.data.negative);
                 $btn.toggleClass('active');
                 $wrapper.find('.kdna-vote-btn').not($btn).removeClass('active');
+            } else if (response.data && response.data.message) {
+                alert(response.data.message);
             }
+        }).fail(function() {
+            alert('Request failed. Please try again.');
+        }).always(function() {
+            $btn.removeClass('kdna-vote-loading');
         });
     });
 
@@ -33,11 +53,17 @@
         var $btn = $(this);
         var commentId = $btn.data('comment-id');
 
+        if ($btn.prop('disabled')) {
+            return;
+        }
+
         if (!confirm('Are you sure you want to report this review?')) {
             return;
         }
 
         var reason = prompt('Please provide a reason (optional):') || '';
+
+        $btn.prop('disabled', true);
 
         $.post(kdnaReviews.ajaxUrl, {
             action: 'kdna_review_flag',
@@ -46,10 +72,14 @@
             reason: reason
         }, function(response) {
             if (response.success) {
-                $btn.text('Reported').prop('disabled', true).css('color', '#999');
+                $btn.text('Reported').css('color', '#999');
             } else if (response.data && response.data.message) {
                 alert(response.data.message);
+                $btn.prop('disabled', false);
             }
+        }).fail(function() {
+            alert('Request failed. Please try again.');
+            $btn.prop('disabled', false);
         });
     });
 

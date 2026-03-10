@@ -1,0 +1,39 @@
+/* Related Products – default card layout */
+.kdna-related-products-widget {
+    margin: 2em 0;
+}
+.kdna-related-title {
+    margin-bottom: 20px;
+}
+.kdna-related-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+.kdna-related-grid .woocommerce ul.products {
+    display: contents;
+}
+.kdna-related-grid .product {
+    list-style: none;
+}
+.kdna-related-product-card {
+    overflow: hidden;
+}
+.kdna-related-product-card img {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+.kdna-related-product-card .kdna-product-title {
+    margin: 10px 0 4px;
+}
+.kdna-related-product-card .kdna-product-title a {
+    text-decoration: none;
+    color: inherit;
+}
+.kdna-related-product-card .kdna-product-price {
+    font-weight: 600;
+}
+.kdna-related-grid-item {
+    min-width: 0;
+}
