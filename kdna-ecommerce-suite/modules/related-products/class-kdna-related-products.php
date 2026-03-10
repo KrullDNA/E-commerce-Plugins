@@ -18,8 +18,14 @@ class KDNA_Related_Products {
         // Override WooCommerce related products
         add_filter( 'woocommerce_related_products', [ $this, 'get_custom_related_products' ], 10, 3 );
 
-        // Enqueue frontend assets
+        // Register assets early so Elementor get_style_depends can resolve the handle.
+        add_action( 'wp_enqueue_scripts', [ $this, 'register_assets' ], 5 );
+        // Enqueue on product/shop pages (non-Elementor contexts).
         add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_assets' ] );
+    }
+
+    public function register_assets() {
+        wp_register_style( 'kdna-related-products', KDNA_ECOMMERCE_URL . 'assets/css/related-products.css', [], KDNA_ECOMMERCE_VERSION );
     }
 
     public function enqueue_assets() {
@@ -27,7 +33,7 @@ class KDNA_Related_Products {
             return;
         }
 
-        wp_enqueue_style( 'kdna-related-products', KDNA_ECOMMERCE_URL . 'assets/css/related-products.css', [], KDNA_ECOMMERCE_VERSION );
+        wp_enqueue_style( 'kdna-related-products' );
     }
 
     public function add_related_products_field() {

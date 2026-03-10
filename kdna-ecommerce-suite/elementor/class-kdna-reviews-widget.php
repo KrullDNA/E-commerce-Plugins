@@ -23,6 +23,14 @@ class KDNA_Reviews_Widget extends \Elementor\Widget_Base {
         return [ 'reviews', 'woocommerce', 'ratings', 'kdna' ];
     }
 
+    public function get_style_depends() {
+        return [ 'kdna-reviews' ];
+    }
+
+    public function get_script_depends() {
+        return [ 'kdna-reviews' ];
+    }
+
     protected function register_controls() {
 
         // Content
