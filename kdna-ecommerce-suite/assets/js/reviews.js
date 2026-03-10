@@ -160,7 +160,89 @@
     console.log('WC native related section:', $wcRelated.length ? '✓ found' : '✗ not found');
     console.groupEnd();
 
-    // 7. Elementor context
+    // 7. Review Form Widget — Submit Button debug
+    console.group('Review Form Widget (Submit Button)');
+    var $formContainer = $('.kdna-review-form-container');
+    console.log('.kdna-review-form-container:', $formContainer.length ? '✓ found' : '✗ NOT FOUND');
+    if ($formContainer.length) {
+        // Find the submit button via multiple selectors
+        var $submitBtn = $formContainer.find('input[type="submit"], button[type="submit"], .form-submit input, #submit').first();
+        console.log('Submit button found:', $submitBtn.length ? '✓' : '✗ NOT FOUND');
+        if ($submitBtn.length) {
+            var bs = window.getComputedStyle($submitBtn[0]);
+            console.log('Submit button TAG:', $submitBtn[0].tagName, 'ID:', $submitBtn[0].id, 'CLASS:', $submitBtn[0].className);
+            console.log('Submit button computed styles:', {
+                padding: bs.padding,
+                paddingTop: bs.paddingTop,
+                paddingRight: bs.paddingRight,
+                paddingBottom: bs.paddingBottom,
+                paddingLeft: bs.paddingLeft,
+                fontWeight: bs.fontWeight,
+                fontSize: bs.fontSize,
+                fontFamily: bs.fontFamily,
+                color: bs.color,
+                backgroundColor: bs.backgroundColor,
+                border: bs.border,
+                borderRadius: bs.borderRadius,
+                textTransform: bs.textTransform,
+                letterSpacing: bs.letterSpacing,
+                display: bs.display,
+                width: bs.width
+            });
+            // Check for inline styles that could override
+            console.log('Submit button inline style attr:', $submitBtn[0].getAttribute('style') || '(none)');
+        }
+
+        // Check DOM structure around the button
+        var $respond = $formContainer.find('#respond');
+        var $preview = $formContainer.find('.kdna-review-form-preview');
+        var $formSubmitP = $formContainer.find('.form-submit');
+        console.log('#respond inside container:', $respond.length ? '✓' : '✗ (editor preview?)');
+        console.log('.kdna-review-form-preview:', $preview.length ? '✓ (editor)' : '✗ (live form)');
+        console.log('.form-submit wrapper:', $formSubmitP.length ? '✓' : '✗');
+
+        // Dump all stylesheets rules targeting #submit or .submit to find competing rules
+        try {
+            var competingRules = [];
+            for (var si = 0; si < document.styleSheets.length; si++) {
+                try {
+                    var rules = document.styleSheets[si].cssRules || document.styleSheets[si].rules;
+                    if (!rules) continue;
+                    for (var ri = 0; ri < rules.length; ri++) {
+                        var r = rules[ri];
+                        if (r.selectorText && (
+                            r.selectorText.indexOf('#submit') !== -1 ||
+                            r.selectorText.indexOf('input[type="submit"]') !== -1 ||
+                            r.selectorText.indexOf("input[type='submit']") !== -1 ||
+                            r.selectorText.indexOf('.form-submit') !== -1
+                        )) {
+                            var text = r.cssText;
+                            if (text.indexOf('font-weight') !== -1 || text.indexOf('padding') !== -1) {
+                                competingRules.push({
+                                    sheet: document.styleSheets[si].href || '(inline)',
+                                    rule: text.substring(0, 300)
+                                });
+                            }
+                        }
+                    }
+                } catch(e) { /* cross-origin sheet, skip */ }
+            }
+            if (competingRules.length) {
+                console.warn('CSS rules targeting submit button with padding/font-weight:');
+                competingRules.forEach(function(cr) {
+                    console.log('  Sheet:', cr.sheet);
+                    console.log('  Rule:', cr.rule);
+                });
+            } else {
+                console.log('No competing CSS rules found for submit button padding/font-weight');
+            }
+        } catch(e) {
+            console.log('Could not scan stylesheets:', e.message);
+        }
+    }
+    console.groupEnd();
+
+    // 8. Elementor context
     console.group('Elementor Context');
     console.log('Elementor frontend loaded:', typeof elementorFrontend !== 'undefined' ? '✓' : '✗');
     console.log('Elementor editor mode:', document.body.classList.contains('elementor-editor-active') ? '✓ YES' : '✗ NO (frontend)');
