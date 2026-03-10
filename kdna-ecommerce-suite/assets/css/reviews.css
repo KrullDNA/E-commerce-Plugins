@@ -172,3 +172,24 @@
     font-weight: 600;
     margin-bottom: 4px;
 }
+
+/* Review Form — Submit Button baseline styles.
+   These ensure the button looks consistent even when the user hasn't
+   explicitly configured padding / font-weight / etc. in Elementor.
+   Elementor-generated CSS (which includes the {{WRAPPER}} prefix) is
+   more specific and will override these when the user does set values. */
+.kdna-review-form-container #respond .form-submit input#submit[type="submit"],
+.kdna-review-form-container .kdna-review-form-preview .form-submit input#submit[type="submit"] {
+    padding: 12px 28px !important;
+    font-weight: 600 !important;
+    font-size: 15px !important;
+    line-height: 1.4 !important;
+    letter-spacing: 0.5px !important;
+    border: none !important;
+    cursor: pointer !important;
+    display: inline-block !important;
+    box-sizing: border-box !important;
+    -webkit-appearance: none !important;
+    -moz-appearance: none !important;
+    appearance: none !important;
+}
