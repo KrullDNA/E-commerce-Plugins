@@ -1,32 +1,189 @@
 (function($) {
     'use strict';
 
-    console.log('[KDNA Reviews] JS loaded');
-    console.log('[KDNA Reviews] kdnaReviews localized data:', typeof kdnaReviews !== 'undefined' ? kdnaReviews : 'NOT DEFINED');
-    console.log('[KDNA Reviews] kdnaReviewForm localized data:', typeof kdnaReviewForm !== 'undefined' ? kdnaReviewForm : 'NOT DEFINED');
+    // ═══════════════════════════════════════════════════════════
+    // KDNA DEBUG — Full diagnostic output
+    // ═══════════════════════════════════════════════════════════
 
-    // Check if review elements exist on the page
+    console.group('%c[KDNA Debug] Full Diagnostics', 'color:#2271b1;font-weight:bold;font-size:13px');
+
+    // 1. Check which KDNA stylesheets are loaded
+    console.group('CSS Loaded');
+    var sheets = document.querySelectorAll('link[rel="stylesheet"]');
+    var kdnaSheets = [];
+    sheets.forEach(function(s) {
+        if (s.href && s.href.indexOf('kdna') !== -1) {
+            kdnaSheets.push(s.href);
+        }
+    });
+    if (kdnaSheets.length) {
+        kdnaSheets.forEach(function(href) { console.log('✓', href); });
+    } else {
+        console.warn('✗ No KDNA stylesheets found in <head>');
+    }
+    console.groupEnd();
+
+    // 2. Check which KDNA scripts are loaded
+    console.group('JS Loaded');
+    var scripts = document.querySelectorAll('script[src]');
+    var kdnaScripts = [];
+    scripts.forEach(function(s) {
+        if (s.src && s.src.indexOf('kdna') !== -1) {
+            kdnaScripts.push(s.src);
+        }
+    });
+    if (kdnaScripts.length) {
+        kdnaScripts.forEach(function(src) { console.log('✓', src); });
+    } else {
+        console.warn('✗ No KDNA scripts found (besides this one)');
+    }
+    console.groupEnd();
+
+    // 3. Localized data
+    console.group('Localized Data');
+    console.log('kdnaReviews:', typeof kdnaReviews !== 'undefined' ? kdnaReviews : '✗ NOT DEFINED');
+    console.log('kdnaReviewForm:', typeof kdnaReviewForm !== 'undefined' ? kdnaReviewForm : '✗ NOT DEFINED');
+    console.groupEnd();
+
+    // 4. Reviews widget DOM
+    console.group('Reviews Widget DOM');
     var $reviewWidget = $('.kdna-reviews-widget');
-    var $voteButtons = $('.kdna-vote-btn');
-    var $flagButtons = $('.kdna-flag-btn');
-    console.log('[KDNA Reviews] .kdna-reviews-widget found:', $reviewWidget.length);
-    console.log('[KDNA Reviews] .kdna-vote-btn found:', $voteButtons.length);
-    console.log('[KDNA Reviews] .kdna-flag-btn found:', $flagButtons.length);
+    console.log('.kdna-reviews-widget:', $reviewWidget.length ? '✓ found ' + $reviewWidget.length : '✗ NOT FOUND');
+    if ($reviewWidget.length) {
+        console.log('  HTML (first 500 chars):', $reviewWidget[0].outerHTML.substring(0, 500));
+        console.log('  .kdna-review-item:', $reviewWidget.find('.kdna-review-item').length);
+        console.log('  .kdna-vote-btn:', $reviewWidget.find('.kdna-vote-btn').length);
+        console.log('  .kdna-flag-btn:', $reviewWidget.find('.kdna-flag-btn').length);
+        console.log('  .kdna-reviews-summary:', $reviewWidget.find('.kdna-reviews-summary').length);
+
+        // Computed styles on vote buttons
+        var $firstBtn = $reviewWidget.find('.kdna-vote-btn').first();
+        if ($firstBtn.length) {
+            var cs = window.getComputedStyle($firstBtn[0]);
+            console.log('  Vote btn computed styles:', {
+                padding: cs.padding,
+                fontWeight: cs.fontWeight,
+                background: cs.backgroundColor,
+                border: cs.border,
+                borderRadius: cs.borderRadius,
+                cursor: cs.cursor
+            });
+        }
+
+        // Computed styles on review title
+        var $firstTitle = $reviewWidget.find('.kdna-review-item-title').first();
+        if ($firstTitle.length) {
+            var ts = window.getComputedStyle($firstTitle[0]);
+            console.log('  Review title computed styles:', {
+                fontWeight: ts.fontWeight,
+                fontSize: ts.fontSize,
+                color: ts.color,
+                display: ts.display,
+                tag: $firstTitle[0].tagName
+            });
+        }
+    }
+    console.groupEnd();
+
+    // 5. Native WooCommerce reviews (what the page is actually using)
+    console.group('Native WooCommerce Reviews');
+    var $wcReviewTab = $('#tab-reviews, .woocommerce-Reviews');
+    var $wcComments = $('.commentlist .comment, #comments .comment, .woocommerce-Reviews .comment');
+    var $wcForm = $('#commentform, #review_form form');
+    console.log('#tab-reviews / .woocommerce-Reviews:', $wcReviewTab.length ? '✓ found' : '✗ not found');
+    console.log('Review comments (.comment):', $wcComments.length);
+    console.log('Review form:', $wcForm.length ? '✓ found' : '✗ not found');
+    if ($wcComments.length) {
+        console.log('First comment HTML (300 chars):', $wcComments.first()[0].outerHTML.substring(0, 300));
+    }
+    // Check if KDNA enhancements are in the native form
+    var $titleField = $('.kdna-review-title, .kdna-review-title-field, input[name="kdna_review_title"]');
+    var $photoField = $('.kdna-upload-field, .kdna-review-photos, input[name="kdna_review_photos[]"]');
+    console.log('KDNA title field in native form:', $titleField.length ? '✓ found' : '✗ not found');
+    console.log('KDNA photo upload in native form:', $photoField.length ? '✓ found' : '✗ not found');
+    // Check for KDNA voting in native comments
+    var $nativeVoting = $('.comment .kdna-review-voting, .comment .kdna-vote-btn');
+    console.log('KDNA voting in native comments:', $nativeVoting.length ? '✓ found ' + $nativeVoting.length : '✗ not found');
+    console.groupEnd();
+
+    // 6. Related Products widget DOM
+    console.group('Related Products Widget DOM');
+    var $relatedWidget = $('.kdna-related-products-widget');
+    console.log('.kdna-related-products-widget:', $relatedWidget.length ? '✓ found ' + $relatedWidget.length : '✗ NOT FOUND');
+    if ($relatedWidget.length) {
+        var $grid = $relatedWidget.find('.kdna-related-grid');
+        var $wooWrap = $grid.find('.woocommerce');
+        var $products = $grid.find('li.product');
+        var $loopItems = $grid.find('.kdna-related-grid-item');
+        console.log('  .kdna-related-grid:', $grid.length ? '✓' : '✗');
+        console.log('  .woocommerce wrapper:', $wooWrap.length ? '✓' : '✗');
+        console.log('  li.product (WC default):', $products.length);
+        console.log('  .kdna-related-grid-item (loop tpl):', $loopItems.length);
+        console.log('  Grid HTML (500 chars):', $grid[0].outerHTML.substring(0, 500));
+
+        // Computed styles on the grid
+        var gs = window.getComputedStyle($grid[0]);
+        console.log('  Grid computed styles:', {
+            display: gs.display,
+            gridTemplateColumns: gs.gridTemplateColumns,
+            gap: gs.gap
+        });
+
+        // Check if .woocommerce wrapper has display:contents
+        if ($wooWrap.length) {
+            var ws = window.getComputedStyle($wooWrap[0]);
+            console.log('  .woocommerce wrapper display:', ws.display, ws.display === 'contents' ? '✓ correct' : '✗ SHOULD BE contents');
+        }
+
+        // Check if ul.products has display:contents
+        var $ulProducts = $grid.find('ul.products');
+        if ($ulProducts.length) {
+            var us = window.getComputedStyle($ulProducts[0]);
+            console.log('  ul.products display:', us.display, us.display === 'contents' ? '✓ correct' : '✗ SHOULD BE contents');
+        }
+
+        // Check first product card styles
+        if ($products.length) {
+            var ps = window.getComputedStyle($products[0]);
+            console.log('  First li.product styles:', {
+                float: ps.float,
+                width: ps.width,
+                margin: ps.margin,
+                padding: ps.padding,
+                background: ps.backgroundColor,
+                borderRadius: ps.borderRadius
+            });
+        }
+    }
+    // Also check for WooCommerce native related products
+    var $wcRelated = $('section.related.products, .related.products');
+    console.log('WC native related section:', $wcRelated.length ? '✓ found' : '✗ not found');
+    console.groupEnd();
+
+    // 7. Elementor context
+    console.group('Elementor Context');
+    console.log('Elementor frontend loaded:', typeof elementorFrontend !== 'undefined' ? '✓' : '✗');
+    console.log('Elementor editor mode:', document.body.classList.contains('elementor-editor-active') ? '✓ YES' : '✗ NO (frontend)');
+    var $elWidgets = $('[data-widget_type*="kdna"]');
+    console.log('Elementor KDNA widgets on page:', $elWidgets.length);
+    $elWidgets.each(function() {
+        console.log('  →', $(this).attr('data-widget_type'), this);
+    });
+    console.groupEnd();
+
+    console.groupEnd(); // End KDNA Debug
+
+    // ═══════════════════════════════════════════════════════════
+    // Functional code below
+    // ═══════════════════════════════════════════════════════════
 
     // Ensure comment form has enctype for file uploads.
-    // Use the form ID passed from PHP when available, fall back to common selectors.
     var formId = (typeof kdnaReviewForm !== 'undefined' && kdnaReviewForm.formId)
         ? '#' + kdnaReviewForm.formId
         : '#commentform';
-    var $form = $(formId);
-    console.log('[KDNA Reviews] Comment form selector:', formId, 'found:', $form.length);
-    $form.attr('enctype', 'multipart/form-data');
-
-    // Fallback: if the form wasn't found by ID, try the review form container.
-    if (!$form.length) {
-        var $fallbackForm = $('#review_form form, .comment-form, form.comment-form').first();
-        console.log('[KDNA Reviews] Fallback form found:', $fallbackForm.length);
-        $fallbackForm.attr('enctype', 'multipart/form-data');
+    $(formId).attr('enctype', 'multipart/form-data');
+    if (!$(formId).length) {
+        $('#review_form form, .comment-form, form.comment-form').first().attr('enctype', 'multipart/form-data');
     }
 
     // Voting
@@ -37,21 +194,18 @@
         var commentId = $wrapper.data('comment-id');
         var voteType = $btn.data('vote');
 
-        console.log('[KDNA Reviews] Vote clicked:', { commentId: commentId, voteType: voteType });
+        console.log('[KDNA Reviews] Vote clicked:', { commentId: commentId, voteType: voteType, button: this });
 
         if ($btn.hasClass('kdna-vote-loading')) {
-            console.log('[KDNA Reviews] Vote already loading, skipping');
             return;
         }
         $btn.addClass('kdna-vote-loading');
 
         if (typeof kdnaReviews === 'undefined') {
-            console.error('[KDNA Reviews] kdnaReviews not defined — AJAX will fail');
+            console.error('[KDNA Reviews] kdnaReviews not defined — cannot send AJAX');
             $btn.removeClass('kdna-vote-loading');
             return;
         }
-
-        console.log('[KDNA Reviews] Sending AJAX vote to:', kdnaReviews.ajaxUrl);
 
         $.post(kdnaReviews.ajaxUrl, {
             action: 'kdna_review_vote',
@@ -66,7 +220,6 @@
                 $btn.toggleClass('active');
                 $wrapper.find('.kdna-vote-btn').not($btn).removeClass('active');
             } else if (response.data && response.data.message) {
-                console.warn('[KDNA Reviews] Vote failed:', response.data.message);
                 alert(response.data.message);
             }
         }).fail(function(jqXHR, textStatus, errorThrown) {
@@ -94,16 +247,13 @@
         }
 
         var reason = prompt('Please provide a reason (optional):') || '';
-
         $btn.prop('disabled', true);
 
         if (typeof kdnaReviews === 'undefined') {
-            console.error('[KDNA Reviews] kdnaReviews not defined — AJAX will fail');
+            console.error('[KDNA Reviews] kdnaReviews not defined — cannot send AJAX');
             $btn.prop('disabled', false);
             return;
         }
-
-        console.log('[KDNA Reviews] Sending AJAX flag to:', kdnaReviews.ajaxUrl);
 
         $.post(kdnaReviews.ajaxUrl, {
             action: 'kdna_review_flag',
@@ -115,7 +265,6 @@
             if (response.success) {
                 $btn.text('Reported').css('color', '#999');
             } else if (response.data && response.data.message) {
-                console.warn('[KDNA Reviews] Flag failed:', response.data.message);
                 alert(response.data.message);
                 $btn.prop('disabled', false);
             }
