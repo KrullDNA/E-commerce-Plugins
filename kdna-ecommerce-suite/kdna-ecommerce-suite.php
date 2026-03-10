@@ -2,7 +2,7 @@
 /**
  * Plugin Name: KDNA E-Commerce Suite
  * Plugin URI: https://kdnastaging2.com
- * Description: All-in-one WooCommerce enhancement suite: Points & Rewards, Product Reviews, Related Products, and Sequential Order Numbers.
+ * Description: All-in-one WooCommerce enhancement suite: Points & Rewards, Product Reviews, Related Products, Sequential Order Numbers, Australia Post Shipping, and Shipment Tracking.
  * Version: 1.0.0
  * Author: KDNA
  * Author URI: https://kdnastaging2.com
@@ -48,10 +48,12 @@ class KDNA_Ecommerce_Suite {
     public function activate() {
         if ( ! get_option( 'kdna_ecommerce_modules' ) ) {
             update_option( 'kdna_ecommerce_modules', [
-                'points_rewards'    => 'no',
-                'reviews'           => 'no',
-                'related_products'  => 'no',
-                'sequential_orders' => 'no',
+                'points_rewards'     => 'no',
+                'reviews'            => 'no',
+                'related_products'   => 'no',
+                'sequential_orders'  => 'no',
+                'australia_post'     => 'no',
+                'shipment_tracking'  => 'no',
             ]);
         }
         flush_rewrite_rules();
@@ -97,6 +99,16 @@ class KDNA_Ecommerce_Suite {
         if ( $this->is_module_active( 'sequential_orders' ) ) {
             require_once KDNA_ECOMMERCE_PATH . 'modules/sequential-orders/class-kdna-sequential-orders.php';
             $this->modules['sequential_orders'] = new KDNA_Sequential_Orders();
+        }
+
+        if ( $this->is_module_active( 'australia_post' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/australia-post/class-kdna-australia-post.php';
+            $this->modules['australia_post'] = new KDNA_Australia_Post();
+        }
+
+        if ( $this->is_module_active( 'shipment_tracking' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/shipment-tracking/class-kdna-shipment-tracking.php';
+            $this->modules['shipment_tracking'] = new KDNA_Shipment_Tracking();
         }
 
         // Load Elementor widgets if Elementor is active
