@@ -11,8 +11,8 @@ class KDNA_Admin {
 
     public function add_menu() {
         add_menu_page(
-            __( 'E-Commerce Plugins', 'kdna-ecommerce' ),
-            __( 'E-Commerce Plugins', 'kdna-ecommerce' ),
+            __( 'E-commerce Suite', 'kdna-ecommerce' ),
+            __( 'E-commerce Suite', 'kdna-ecommerce' ),
             'manage_woocommerce',
             'kdna-ecommerce',
             [ $this, 'render_settings_page' ],
@@ -119,7 +119,7 @@ class KDNA_Admin {
         $modules = get_option( 'kdna_ecommerce_modules', [] );
         ?>
         <div class="wrap kdna-ecommerce-wrap">
-            <h1><?php esc_html_e( 'E-Commerce Plugins', 'kdna-ecommerce' ); ?></h1>
+            <h1><?php esc_html_e( 'E-commerce Suite', 'kdna-ecommerce' ); ?></h1>
 
             <nav class="nav-tab-wrapper">
                 <a href="?page=kdna-ecommerce&tab=general" class="nav-tab <?php echo $active_tab === 'general' ? 'nav-tab-active' : ''; ?>">
