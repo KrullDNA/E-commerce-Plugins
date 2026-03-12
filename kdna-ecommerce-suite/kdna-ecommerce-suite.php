@@ -117,10 +117,14 @@ class KDNA_Ecommerce_Suite {
             $this->modules['shipment_tracking'] = new KDNA_Shipment_Tracking();
         }
 
+        require_once KDNA_ECOMMERCE_PATH . 'modules/tax-invoice/class-kdna-tax-invoice.php';
         if ( $this->is_module_active( 'tax_invoice' ) ) {
-            require_once KDNA_ECOMMERCE_PATH . 'modules/tax-invoice/class-kdna-tax-invoice.php';
             $this->modules['tax_invoice'] = new KDNA_Tax_Invoice();
         }
+
+        // Always register the admin test PDF handler so the preview works
+        // even before the module is enabled.
+        KDNA_Tax_Invoice::register_test_pdf_handler();
 
         // Load Elementor widgets if Elementor is active
         add_action( 'elementor/widgets/register', [ $this, 'register_elementor_widgets' ] );

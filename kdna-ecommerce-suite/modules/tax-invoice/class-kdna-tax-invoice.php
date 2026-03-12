@@ -16,8 +16,15 @@ class KDNA_Tax_Invoice {
         // Handle PDF download requests.
         add_action( 'init', [ $this, 'handle_invoice_download' ] );
 
-        // Handle test PDF download (admin only).
-        add_action( 'admin_post_kdna_test_invoice', [ $this, 'handle_test_pdf_download' ] );
+    }
+
+    /**
+     * Register the test PDF handler separately so it works even when the module is disabled.
+     */
+    public static function register_test_pdf_handler() {
+        add_action( 'admin_post_kdna_test_invoice', function () {
+            ( new self() )->handle_test_pdf_download();
+        } );
     }
 
     /**
@@ -509,7 +516,7 @@ class KDNA_Tax_Invoice {
         $dompdf->render();
 
         header( 'Content-Type: application/pdf' );
-        header( 'Content-Disposition: inline; filename="test-tax-invoice.pdf"' );
+        header( 'Content-Disposition: attachment; filename="test-tax-invoice.pdf"' );
         header( 'Cache-Control: private, max-age=0, must-revalidate' );
 
         echo $dompdf->output();
