@@ -17,7 +17,7 @@ class KDNA_Tax_Invoice {
         add_action( 'init', [ $this, 'handle_invoice_download' ] );
 
         // Handle test PDF download (admin only).
-        add_action( 'admin_init', [ $this, 'handle_test_pdf_download' ] );
+        add_action( 'admin_post_kdna_test_invoice', [ $this, 'handle_test_pdf_download' ] );
     }
 
     /**
@@ -495,17 +495,11 @@ class KDNA_Tax_Invoice {
      * Handle the test PDF download from the admin settings page.
      */
     public function handle_test_pdf_download() {
-        if ( empty( $_GET['kdna_test_invoice'] ) ) {
-            return;
-        }
-
         if ( ! current_user_can( 'manage_woocommerce' ) ) {
             wp_die( __( 'You do not have permission to do this.', 'kdna-ecommerce' ) );
         }
 
-        if ( ! wp_verify_nonce( $_GET['_wpnonce'] ?? '', 'kdna_test_invoice' ) ) {
-            wp_die( __( 'Invalid request.', 'kdna-ecommerce' ) );
-        }
+        check_admin_referer( 'kdna_test_invoice' );
 
         $html   = $this->build_test_invoice_html();
         $dompdf = $this->create_dompdf();
