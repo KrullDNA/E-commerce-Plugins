@@ -188,7 +188,7 @@ class KDNA_Tax_Invoice {
         padding: 0;
     }
     .tax-invoice-title {
-        font-size: 26pt;
+        font-size: 18pt;
         font-weight: bold;
         text-align: right;
         letter-spacing: 0.5px;
@@ -215,12 +215,12 @@ class KDNA_Tax_Invoice {
     .address-line {
         margin: 0;
         font-size: 10pt;
-        line-height: 1.2;
+        line-height: 1.0;
     }
     .invoice-meta {
         text-align: right;
         font-size: 10pt;
-        line-height: 1.2;
+        line-height: 1.0;
     }
     .invoice-meta strong {
         font-weight: bold;
@@ -244,14 +244,14 @@ class KDNA_Tax_Invoice {
     .items-table th.amt { text-align: right; }
     .footer-section {
         position: fixed;
-        bottom: 40px;
+        bottom: 20px;
         left: 50px;
         right: 50px;
         border-top: 1px solid #1a1a1a;
         padding-top: 12px;
         text-align: center;
         font-size: 9pt;
-        line-height: 1.2;
+        line-height: 1.0;
     }
     .footer-section p {
         text-align: center;
