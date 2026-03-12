@@ -1087,6 +1087,21 @@ class KDNA_Admin {
             <?php submit_button(); ?>
         </form>
 
+        <hr>
+        <h3><?php esc_html_e( 'Preview', 'kdna-ecommerce' ); ?></h3>
+        <p class="description"><?php esc_html_e( 'Download a test PDF using your current settings with dummy customer and product data.', 'kdna-ecommerce' ); ?></p>
+        <p>
+            <?php
+            $test_url = wp_nonce_url(
+                admin_url( 'admin-post.php?action=kdna_test_invoice' ),
+                'kdna_test_invoice'
+            );
+            ?>
+            <a href="<?php echo esc_url( $test_url ); ?>" class="button button-secondary" target="_blank">
+                <?php esc_html_e( 'Download Test PDF', 'kdna-ecommerce' ); ?>
+            </a>
+        </p>
+
         <script>
         jQuery(function($) {
             // Colour picker

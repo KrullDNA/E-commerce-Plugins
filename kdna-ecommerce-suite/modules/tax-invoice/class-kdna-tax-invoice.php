@@ -15,6 +15,16 @@ class KDNA_Tax_Invoice {
 
         // Handle PDF download requests.
         add_action( 'init', [ $this, 'handle_invoice_download' ] );
+
+    }
+
+    /**
+     * Register the test PDF handler separately so it works even when the module is disabled.
+     */
+    public static function register_test_pdf_handler() {
+        add_action( 'admin_post_kdna_test_invoice', function () {
+            ( new self() )->handle_test_pdf_download();
+        } );
     }
 
     /**
@@ -143,7 +153,118 @@ class KDNA_Tax_Invoice {
     }
 
     /**
-     * Create a configured DOMPDF instance.
+     * Shared CSS for invoice PDFs.
+     */
+    private function get_invoice_css( $accent_color ) {
+        return '
+    @page {
+        margin: 0;
+        size: A4;
+    }
+    body {
+        font-family: "Apotheca", Helvetica, Arial, sans-serif;
+        font-weight: 400;
+        color: #1a1a1a;
+        font-size: 10pt;
+        line-height: 1.15;
+        margin: 0;
+        padding: 0;
+    }
+    .page-wrap {
+        padding: 0 50px 120px 50px;
+    }
+    .accent-bar {
+        background-color: ' . $accent_color . ';
+        height: 18px;
+        width: 100%;
+    }
+    .header-table {
+        width: 100%;
+        margin-top: 25px;
+        margin-bottom: 30px;
+    }
+    .header-table td {
+        vertical-align: middle;
+        padding: 0;
+    }
+    .tax-invoice-title {
+        font-size: 26pt;
+        font-weight: bold;
+        text-align: right;
+        letter-spacing: 0.5px;
+        line-height: 1.0;
+    }
+    .details-table {
+        width: 100%;
+        margin-bottom: 30px;
+    }
+    .details-table td {
+        vertical-align: top;
+        padding: 0;
+    }
+    .to-label {
+        font-size: 9pt;
+        color: #666;
+        margin-bottom: 2px;
+    }
+    .customer-name {
+        font-weight: bold;
+        font-size: 11pt;
+        margin-bottom: 1px;
+    }
+    .address-line {
+        margin: 0;
+        font-size: 10pt;
+        line-height: 1.2;
+    }
+    .invoice-meta {
+        text-align: right;
+        font-size: 10pt;
+        line-height: 1.2;
+    }
+    .invoice-meta strong {
+        font-weight: bold;
+    }
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .items-table th {
+        background-color: #1a1a1a;
+        color: #ffffff;
+        padding: 6px 12px 8px 12px;
+        text-align: left;
+        font-weight: bold;
+        font-size: 7.5pt;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+    }
+    .items-table th.qty { text-align: center; }
+    .items-table th.uc  { text-align: right; }
+    .items-table th.amt { text-align: right; }
+    .footer-section {
+        position: fixed;
+        bottom: 40px;
+        left: 50px;
+        right: 50px;
+        border-top: 1px solid #1a1a1a;
+        padding-top: 12px;
+        text-align: center;
+        font-size: 9pt;
+        line-height: 1.2;
+    }
+    .footer-section p {
+        text-align: center;
+        margin: 0;
+        padding: 0;
+    }
+    .footer-section strong {
+        font-weight: bold;
+    }';
+    }
+
+    /**
+     * Create a configured DOMPDF instance with the Apotheca font registered.
      */
     private function create_dompdf() {
         $options = new Options();
@@ -153,7 +274,45 @@ class KDNA_Tax_Invoice {
         $options->set( 'isFontSubsettingEnabled', true );
         $options->set( 'tempDir', sys_get_temp_dir() );
 
-        return new Dompdf( $options );
+        // Allow DOMPDF to read bundled font files from the plugin directory.
+        $plugin_fonts_dir = KDNA_ECOMMERCE_PATH . 'assets/fonts';
+        $chroot = $options->getChroot();
+        $chroot = is_array( $chroot ) ? $chroot : [ $chroot ];
+        $chroot[] = $plugin_fonts_dir;
+        $options->setChroot( $chroot );
+
+        $dompdf = new Dompdf( $options );
+
+        // Register bundled Apotheca TTF fonts with DOMPDF's font system.
+        $this->register_apotheca_font( $dompdf, $plugin_fonts_dir );
+
+        return $dompdf;
+    }
+
+    /**
+     * Register the Apotheca font files with DOMPDF's FontMetrics.
+     */
+    private function register_apotheca_font( $dompdf, $fonts_dir ) {
+        $font_map = [
+            [ 'weight' => 'normal', 'file' => $fonts_dir . '/Go-Book.ttf' ],
+            [ 'weight' => 'bold',   'file' => $fonts_dir . '/Go-Medium.ttf' ],
+        ];
+
+        $font_metrics = $dompdf->getFontMetrics();
+
+        foreach ( $font_map as $font ) {
+            if ( ! file_exists( $font['file'] ) ) {
+                continue;
+            }
+            $font_metrics->registerFont(
+                [
+                    'family' => 'Apotheca',
+                    'style'  => 'normal',
+                    'weight' => $font['weight'],
+                ],
+                $font['file']
+            );
+        }
     }
 
     /**
@@ -224,8 +383,7 @@ class KDNA_Tax_Invoice {
             trim( $state . ' ' . $postcode . ' ' . $country ),
         ] );
 
-        // Resolve Apotheca font from Elementor custom fonts or theme.
-        $font_face_css = $this->get_apotheca_font_css();
+        // Font is registered via DOMPDF's FontMetrics in create_dompdf().
 
         // Build items HTML.
         $items_html = '';
@@ -300,107 +458,7 @@ class KDNA_Tax_Invoice {
 <html>
 <head>
 <meta charset="UTF-8">
-' . $font_face_css . '
-<style>
-    @page {
-        margin: 0;
-        size: A4;
-    }
-    body {
-        font-family: "Apotheca", Helvetica, Arial, sans-serif;
-        font-weight: 400;
-        color: #1a1a1a;
-        font-size: 10pt;
-        line-height: 1.5;
-        margin: 0;
-        padding: 0;
-    }
-    .page-wrap {
-        padding: 0 50px 120px 50px;
-        position: relative;
-        min-height: 100%;
-    }
-    .accent-bar {
-        background-color: ' . $accent_color . ';
-        height: 8px;
-        width: 100%;
-    }
-    .header-table {
-        width: 100%;
-        margin-top: 25px;
-        margin-bottom: 35px;
-    }
-    .header-table td {
-        vertical-align: bottom;
-        padding: 0;
-    }
-    .tax-invoice-title {
-        font-size: 26pt;
-        font-weight: 500;
-        text-align: right;
-        letter-spacing: 0.5px;
-    }
-    .details-table {
-        width: 100%;
-        margin-bottom: 35px;
-    }
-    .details-table td {
-        vertical-align: top;
-        padding: 0;
-    }
-    .to-label {
-        font-size: 9pt;
-        color: #666;
-        margin-bottom: 4px;
-    }
-    .customer-name {
-        font-weight: 500;
-        font-size: 11pt;
-        margin-bottom: 2px;
-    }
-    .address-line {
-        margin: 1px 0;
-        font-size: 10pt;
-    }
-    .invoice-meta {
-        text-align: right;
-        font-size: 10pt;
-        line-height: 1.8;
-    }
-    .invoice-meta strong {
-        font-weight: 500;
-    }
-    .items-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .items-table th {
-        background-color: ' . $accent_color . ';
-        padding: 10px 12px;
-        text-align: left;
-        font-weight: 500;
-        font-size: 7.5pt;
-        letter-spacing: 1.2px;
-        text-transform: uppercase;
-    }
-    .items-table th.qty { text-align: center; }
-    .items-table th.uc  { text-align: right; }
-    .items-table th.amt { text-align: right; }
-    .footer-section {
-        position: fixed;
-        bottom: 40px;
-        left: 50px;
-        right: 50px;
-        border-top: 1px solid #1a1a1a;
-        padding-top: 15px;
-        text-align: center;
-        font-size: 9pt;
-        line-height: 1.7;
-    }
-    .footer-section strong {
-        font-weight: 500;
-    }
-</style>
+<style>' . $this->get_invoice_css( $accent_color ) . '</style>
 </head>
 <body>
 
@@ -412,7 +470,7 @@ class KDNA_Tax_Invoice {
     <table class="header-table">
         <tr>
             <td style="width:60%;">'
-                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;">' : '' ) .
+                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;vertical-align:middle;">' : '' ) .
             '</td>
             <td style="width:40%;">
                 <div class="tax-invoice-title">TAX INVOICE</div>
@@ -470,8 +528,8 @@ class KDNA_Tax_Invoice {
             <!-- Total Paid -->
             <tr>
                 <td colspan="3" style="border:none;"></td>
-                <td style="background-color:' . $accent_color . ';padding:10px 12px;font-weight:500;font-size:10pt;">TOTAL PAID</td>
-                <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:500;font-size:10pt;">' . wc_price( $total_amount ) . '</td>
+                <td style="background-color:' . $accent_color . ';padding:6px 12px 8px 12px;font-weight:bold;font-size:10pt;">TOTAL PAID</td>
+                <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:bold;font-size:10pt;">' . wc_price( $total_amount ) . '</td>
             </tr>
         </tbody>
     </table>
@@ -479,7 +537,7 @@ class KDNA_Tax_Invoice {
 
 <!-- Footer -->
 <div class="footer-section">
-    ' . wp_kses_post( $footer_text ) . '
+    <p>' . nl2br( wp_kses_post( $footer_text ) ) . '</p>
 </div>
 
 </body>
@@ -489,127 +547,173 @@ class KDNA_Tax_Invoice {
     }
 
     /**
-     * Attempt to load the Apotheca font from Elementor custom fonts or theme.
-     * Returns a <style> block with @font-face declarations, or empty string.
+     * Handle the test PDF download from the admin settings page.
      */
-    private function get_apotheca_font_css() {
-        $font_urls = [];
-
-        // Check Elementor custom font posts.
-        $font_posts = get_posts( [
-            'post_type'      => 'elementor_font',
-            'posts_per_page' => 5,
-            'post_status'    => 'publish',
-            's'              => 'Apotheca',
-        ] );
-
-        if ( empty( $font_posts ) ) {
-            // Broader search – match any font post title containing "apotheca".
-            $font_posts = get_posts( [
-                'post_type'      => 'elementor_font',
-                'posts_per_page' => 20,
-                'post_status'    => 'publish',
-            ] );
-            $font_posts = array_filter( $font_posts, function ( $p ) {
-                return stripos( $p->post_title, 'apotheca' ) !== false;
-            } );
+    public function handle_test_pdf_download() {
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_die( __( 'You do not have permission to do this.', 'kdna-ecommerce' ) );
         }
 
-        foreach ( $font_posts as $fp ) {
-            $meta = get_post_meta( $fp->ID );
-            // Elementor stores font files in repeater meta fields.
-            foreach ( $meta as $key => $values ) {
-                foreach ( $values as $val ) {
-                    if ( is_string( $val ) && preg_match( '/\.(woff2?|ttf|otf|eot)$/i', $val ) ) {
-                        $font_urls[] = $val;
-                    }
-                    // Try unserialized data.
-                    $unserialized = @unserialize( $val );
-                    if ( is_array( $unserialized ) ) {
-                        array_walk_recursive( $unserialized, function ( $v ) use ( &$font_urls ) {
-                            if ( is_string( $v ) && preg_match( '/\.(woff2?|ttf|otf|eot)$/i', $v ) ) {
-                                $font_urls[] = $v;
-                            }
-                            if ( is_string( $v ) && filter_var( $v, FILTER_VALIDATE_URL ) && preg_match( '/font/i', $v ) ) {
-                                $font_urls[] = $v;
-                            }
-                        } );
-                    }
-                }
+        check_admin_referer( 'kdna_test_invoice' );
+
+        $html   = $this->build_test_invoice_html();
+        $dompdf = $this->create_dompdf();
+
+        $dompdf->loadHtml( $html );
+        $dompdf->setPaper( 'A4', 'portrait' );
+        $dompdf->render();
+
+        header( 'Content-Type: application/pdf' );
+        header( 'Content-Disposition: attachment; filename="test-tax-invoice.pdf"' );
+        header( 'Cache-Control: private, max-age=0, must-revalidate' );
+
+        echo $dompdf->output();
+        exit;
+    }
+
+    /**
+     * Build invoice HTML with dummy data for previewing the layout.
+     */
+    private function build_test_invoice_html() {
+        $settings = wp_parse_args(
+            get_option( 'kdna_invoice_settings', [] ),
+            self::get_default_settings()
+        );
+
+        $accent_color = sanitize_hex_color( $settings['accent_color'] ) ?: '#C8E600';
+        $footer_text  = $settings['footer_text'];
+        $logo_id      = $settings['logo_id'];
+        $logo_src     = '';
+
+        if ( $logo_id ) {
+            $logo_path = get_attached_file( $logo_id );
+            if ( $logo_path && file_exists( $logo_path ) ) {
+                $mime     = mime_content_type( $logo_path );
+                $data     = base64_encode( file_get_contents( $logo_path ) );
+                $logo_src = 'data:' . $mime . ';base64,' . $data;
             }
         }
 
-        // Also check common filesystem locations.
-        $possible_dirs = [
-            get_stylesheet_directory() . '/fonts',
-            get_stylesheet_directory() . '/assets/fonts',
-            wp_upload_dir()['basedir'] . '/elementor/custom-fonts',
+        // Font is registered via DOMPDF's FontMetrics in create_dompdf().
+
+        // Dummy line items.
+        $dummy_items = [
+            [ 'name' => 'Organic Lavender Hand Cream 250ml',  'qty' => 2, 'unit_cost' => 24.95 ],
+            [ 'name' => 'Rosehip Facial Serum 30ml',          'qty' => 1, 'unit_cost' => 49.50 ],
+            [ 'name' => 'Tea Tree Shampoo Bar 120g',          'qty' => 3, 'unit_cost' => 14.00 ],
         ];
 
-        foreach ( $possible_dirs as $dir ) {
-            if ( ! is_dir( $dir ) ) {
-                continue;
-            }
-            $files = glob( $dir . '/*potheca*.*' );
-            if ( $files ) {
-                foreach ( $files as $file ) {
-                    if ( preg_match( '/\.(woff2?|ttf|otf)$/i', $file ) ) {
-                        $font_urls[] = $file;
-                    }
-                }
-            }
+        $items_html     = '';
+        $subtotal       = 0;
+
+        foreach ( $dummy_items as $item ) {
+            $line_total = $item['qty'] * $item['unit_cost'];
+            $subtotal  += $line_total;
+            $items_html .= '<tr>';
+            $items_html .= '<td style="width:55px;padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;"></td>';
+            $items_html .= '<td style="padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;">' . esc_html( $item['name'] ) . '</td>';
+            $items_html .= '<td style="padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;text-align:center;">' . esc_html( $item['qty'] ) . '</td>';
+            $items_html .= '<td style="padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;text-align:right;">$' . number_format( $item['unit_cost'], 2 ) . '</td>';
+            $items_html .= '<td style="padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;text-align:right;">$' . number_format( $line_total, 2 ) . '</td>';
+            $items_html .= '</tr>';
         }
 
-        if ( empty( $font_urls ) ) {
-            return '';
-        }
+        $shipping    = 9.95;
+        $tax         = round( $subtotal * 0.10, 2 );
+        $total       = $subtotal + $shipping + $tax;
 
-        // Group by weight (look for 400/regular and 500/medium hints in filename).
-        $faces = [];
-        foreach ( $font_urls as $url ) {
-            // Determine format.
-            $ext = strtolower( pathinfo( $url, PATHINFO_EXTENSION ) );
-            $format_map = [
-                'woff2' => 'woff2',
-                'woff'  => 'woff',
-                'ttf'   => 'truetype',
-                'otf'   => 'opentype',
-            ];
-            $format = $format_map[ $ext ] ?? 'truetype';
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>' . $this->get_invoice_css( $accent_color ) . '</style>
+</head>
+<body>
 
-            // Determine weight from filename hints.
-            $basename = strtolower( basename( $url ) );
-            if ( preg_match( '/(medium|500|bold)/i', $basename ) ) {
-                $weight = '500';
-            } else {
-                $weight = '400';
-            }
+<div class="accent-bar"></div>
 
-            // Convert local paths to data URIs for DOMPDF compatibility.
-            $src = $url;
-            if ( file_exists( $url ) ) {
-                $data = base64_encode( file_get_contents( $url ) );
-                $mime = 'application/octet-stream';
-                if ( $ext === 'woff2' ) $mime = 'font/woff2';
-                elseif ( $ext === 'woff' ) $mime = 'font/woff';
-                elseif ( $ext === 'ttf' ) $mime = 'font/ttf';
-                $src = 'data:' . $mime . ';base64,' . $data;
-            }
+<div class="page-wrap">
 
-            $faces[ $weight ][] = 'url("' . $src . '") format("' . $format . '")';
-        }
+    <!-- Header: Logo + Title -->
+    <table class="header-table">
+        <tr>
+            <td style="width:60%;">'
+                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;vertical-align:middle;">' : '' ) .
+            '</td>
+            <td style="width:40%;">
+                <div class="tax-invoice-title">TAX INVOICE</div>
+            </td>
+        </tr>
+    </table>
 
-        $css = '<style>' . "\n";
-        foreach ( $faces as $weight => $sources ) {
-            $css .= '@font-face {
-    font-family: "Apotheca";
-    src: ' . implode( ', ', $sources ) . ';
-    font-weight: ' . $weight . ';
-    font-style: normal;
-}' . "\n";
-        }
-        $css .= '</style>';
+    <!-- TO / Invoice Details -->
+    <table class="details-table">
+        <tr>
+            <td style="width:55%;">
+                <div class="to-label">TO:</div>
+                <div class="customer-name">Jane Smith</div>
+                <div class="address-line">42 Wallaby Way</div>
+                <div class="address-line">Sydney</div>
+                <div class="address-line">New South Wales 2000 Australia</div>
+                <div class="address-line" style="margin-top:4px;">0412 345 678</div>
+            </td>
+            <td style="width:45%;">
+                <div class="invoice-meta">
+                    <strong>Invoice no:</strong> 10042<br>
+                    <strong>Date:</strong> ' . wp_date( 'd/m/Y' ) . '<br><br>
+                    <strong>Payment method:</strong> Credit Card (Stripe)
+                </div>
+            </td>
+        </tr>
+    </table>
 
-        return $css;
+    <!-- Items Table -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th colspan="2">DESCRIPTION</th>
+                <th class="qty">QUANTITY</th>
+                <th class="uc">UNIT COST</th>
+                <th class="amt">AMOUNT</th>
+            </tr>
+        </thead>
+        <tbody>
+            ' . $items_html . '
+
+            <!-- Subtotal -->
+            <tr>
+                <td colspan="4" style="padding:8px 12px;text-align:right;border:none;font-size:9.5pt;">Sub-total</td>
+                <td style="padding:8px 12px;text-align:right;border:none;font-size:9.5pt;">$' . number_format( $subtotal, 2 ) . '</td>
+            </tr>
+            <!-- Shipping -->
+            <tr>
+                <td colspan="4" style="padding:6px 12px;text-align:right;border:none;font-size:9.5pt;">Shipping</td>
+                <td style="padding:6px 12px;text-align:right;border:none;font-size:9.5pt;">$' . number_format( $shipping, 2 ) . '</td>
+            </tr>
+            <!-- Tax -->
+            <tr>
+                <td colspan="4" style="padding:6px 12px;text-align:right;border:none;font-size:9.5pt;">Tax</td>
+                <td style="padding:6px 12px;text-align:right;border:none;font-size:9.5pt;">$' . number_format( $tax, 2 ) . '</td>
+            </tr>
+            <!-- Total Paid -->
+            <tr>
+                <td colspan="3" style="border:none;"></td>
+                <td style="background-color:' . $accent_color . ';padding:6px 12px 8px 12px;font-weight:bold;font-size:10pt;">TOTAL PAID</td>
+                <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:bold;font-size:10pt;">$' . number_format( $total, 2 ) . '</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Footer -->
+<div class="footer-section">
+    <p>' . nl2br( wp_kses_post( $footer_text ) ) . '</p>
+</div>
+
+</body>
+</html>';
+
+        return $html;
     }
+
 }
