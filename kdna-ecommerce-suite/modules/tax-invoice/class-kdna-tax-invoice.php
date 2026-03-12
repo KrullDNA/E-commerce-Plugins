@@ -215,12 +215,12 @@ class KDNA_Tax_Invoice {
     .address-line {
         margin: 0;
         font-size: 10pt;
-        line-height: 1.2;
+        line-height: 1.0;
     }
     .invoice-meta {
         text-align: right;
         font-size: 10pt;
-        line-height: 1.2;
+        line-height: 1.0;
     }
     .invoice-meta strong {
         font-weight: bold;
@@ -251,7 +251,7 @@ class KDNA_Tax_Invoice {
         padding-top: 12px;
         text-align: center;
         font-size: 9pt;
-        line-height: 1.2;
+        line-height: 1.0;
     }
     .footer-section p {
         text-align: center;
