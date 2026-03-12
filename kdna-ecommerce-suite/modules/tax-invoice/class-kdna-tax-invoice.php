@@ -680,15 +680,36 @@ class KDNA_Tax_Invoice {
     }
 
     /**
-     * Attempt to load the Apotheca font from Elementor custom fonts or theme.
-     * Returns a <style> block with @font-face declarations, or empty string.
+     * Load the Apotheca font for DOMPDF.
      *
-     * DOMPDF only supports TTF/OTF fonts — woff/woff2 are skipped.
+     * Uses the TTF files bundled with the plugin (assets/fonts/).
+     * Falls back to searching Elementor custom fonts and common directories.
+     * DOMPDF only supports TTF/OTF — woff/woff2 are not usable.
      */
     private function get_apotheca_font_css() {
+        // Bundled font files (preferred — always available).
+        $plugin_fonts_dir = KDNA_ECOMMERCE_PATH . 'assets/fonts';
+        $bundled = [
+            '400' => $plugin_fonts_dir . '/Go-Book.ttf',
+            '500' => $plugin_fonts_dir . '/Go-Medium.ttf',
+        ];
+
+        $faces = [];
+        foreach ( $bundled as $weight => $file ) {
+            if ( file_exists( $file ) ) {
+                $data = base64_encode( file_get_contents( $file ) );
+                $faces[ $weight ] = 'url("data:font/ttf;base64,' . $data . '") format("truetype")';
+            }
+        }
+
+        // If bundled fonts found, use them directly.
+        if ( ! empty( $faces ) ) {
+            return $this->build_font_face_css( $faces );
+        }
+
+        // Fallback: search Elementor custom fonts and filesystem.
         $font_paths = [];
 
-        // Check Elementor custom font posts.
         $font_posts = get_posts( [
             'post_type'      => 'elementor_font',
             'posts_per_page' => 5,
@@ -707,23 +728,25 @@ class KDNA_Tax_Invoice {
             } );
         }
 
-        // Extract font file URLs/paths from Elementor meta.
         foreach ( $font_posts as $fp ) {
             $meta = get_post_meta( $fp->ID );
             foreach ( $meta as $key => $values ) {
                 foreach ( $values as $val ) {
-                    $this->collect_font_paths( $val, $font_paths );
+                    if ( is_string( $val ) && preg_match( '/\.(ttf|otf)$/i', $val ) ) {
+                        $font_paths[] = $val;
+                    }
                     $unserialized = @unserialize( $val );
                     if ( is_array( $unserialized ) ) {
                         array_walk_recursive( $unserialized, function ( $v ) use ( &$font_paths ) {
-                            $this->collect_font_paths( $v, $font_paths );
+                            if ( is_string( $v ) && preg_match( '/\.(ttf|otf)$/i', $v ) ) {
+                                $font_paths[] = $v;
+                            }
                         } );
                     }
                 }
             }
         }
 
-        // Check common filesystem locations.
         $possible_dirs = [
             get_stylesheet_directory() . '/fonts',
             get_stylesheet_directory() . '/assets/fonts',
@@ -744,44 +767,37 @@ class KDNA_Tax_Invoice {
             }
         }
 
-        // Resolve URLs to local file paths.
-        $resolved = [];
+        // Resolve URLs to local paths.
         $upload_dir = wp_upload_dir();
         foreach ( array_unique( $font_paths ) as $path ) {
-            // If it's a URL, try to convert to a local filesystem path.
             if ( filter_var( $path, FILTER_VALIDATE_URL ) ) {
                 if ( ! empty( $upload_dir['baseurl'] ) && strpos( $path, $upload_dir['baseurl'] ) === 0 ) {
                     $path = str_replace( $upload_dir['baseurl'], $upload_dir['basedir'], $path );
                 } else {
-                    continue; // Skip remote URLs we can't resolve.
+                    continue;
                 }
             }
             if ( file_exists( $path ) && preg_match( '/\.(ttf|otf)$/i', $path ) ) {
-                $resolved[] = $path;
+                $ext    = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
+                $format = $ext === 'otf' ? 'opentype' : 'truetype';
+                $mime   = $ext === 'otf' ? 'font/otf' : 'font/ttf';
+                $weight = preg_match( '/(medium|500|bold)/i', basename( $path ) ) ? '500' : '400';
+                $data   = base64_encode( file_get_contents( $path ) );
+                $faces[ $weight ] = 'url("data:' . $mime . ';base64,' . $data . '") format("' . $format . '")';
             }
         }
 
-        if ( empty( $resolved ) ) {
+        if ( empty( $faces ) ) {
             return '';
         }
 
-        // Group by weight.
-        $faces = [];
-        foreach ( $resolved as $file ) {
-            $ext    = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
-            $format = $ext === 'otf' ? 'opentype' : 'truetype';
+        return $this->build_font_face_css( $faces );
+    }
 
-            $basename = strtolower( basename( $file ) );
-            $weight   = preg_match( '/(medium|500|bold)/i', $basename ) ? '500' : '400';
-
-            // Embed as data URI for DOMPDF.
-            $data = base64_encode( file_get_contents( $file ) );
-            $mime = $ext === 'otf' ? 'font/otf' : 'font/ttf';
-            $src  = 'data:' . $mime . ';base64,' . $data;
-
-            $faces[ $weight ] = 'url("' . $src . '") format("' . $format . '")';
-        }
-
+    /**
+     * Build @font-face CSS block from an array of weight => src pairs.
+     */
+    private function build_font_face_css( $faces ) {
         $css = '<style>' . "\n";
         foreach ( $faces as $weight => $source ) {
             $css .= '@font-face {
@@ -792,19 +808,6 @@ class KDNA_Tax_Invoice {
 }' . "\n";
         }
         $css .= '</style>';
-
         return $css;
-    }
-
-    /**
-     * Collect TTF/OTF font paths from a meta value string.
-     */
-    private function collect_font_paths( $val, &$paths ) {
-        if ( ! is_string( $val ) ) {
-            return;
-        }
-        if ( preg_match( '/\.(ttf|otf)$/i', $val ) ) {
-            $paths[] = $val;
-        }
     }
 }
