@@ -188,7 +188,7 @@ class KDNA_Tax_Invoice {
         padding: 0;
     }
     .tax-invoice-title {
-        font-size: 26pt;
+        font-size: 18pt;
         font-weight: bold;
         text-align: right;
         letter-spacing: 0.5px;
