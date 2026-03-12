@@ -1093,7 +1093,7 @@ class KDNA_Admin {
         <p>
             <?php
             $test_url = wp_nonce_url(
-                add_query_arg( 'kdna_test_invoice', '1', admin_url() ),
+                add_query_arg( 'kdna_test_invoice', '1', admin_url( 'admin.php' ) ),
                 'kdna_test_invoice'
             );
             ?>
