@@ -21,6 +21,11 @@ define( 'KDNA_ECOMMERCE_FILE', __FILE__ );
 define( 'KDNA_ECOMMERCE_PATH', plugin_dir_path( __FILE__ ) );
 define( 'KDNA_ECOMMERCE_URL', plugin_dir_url( __FILE__ ) );
 
+// Load Composer autoloader (required for DOMPDF and other dependencies).
+if ( file_exists( KDNA_ECOMMERCE_PATH . 'vendor/autoload.php' ) ) {
+    require_once KDNA_ECOMMERCE_PATH . 'vendor/autoload.php';
+}
+
 // HPOS compatibility
 add_action( 'before_woocommerce_init', function () {
     if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
@@ -54,6 +59,7 @@ class KDNA_Ecommerce_Suite {
                 'sequential_orders'  => 'no',
                 'australia_post'     => 'no',
                 'shipment_tracking'  => 'no',
+                'tax_invoice'        => 'no',
             ]);
         }
         flush_rewrite_rules();
@@ -109,6 +115,11 @@ class KDNA_Ecommerce_Suite {
         if ( $this->is_module_active( 'shipment_tracking' ) ) {
             require_once KDNA_ECOMMERCE_PATH . 'modules/shipment-tracking/class-kdna-shipment-tracking.php';
             $this->modules['shipment_tracking'] = new KDNA_Shipment_Tracking();
+        }
+
+        if ( $this->is_module_active( 'tax_invoice' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/tax-invoice/class-kdna-tax-invoice.php';
+            $this->modules['tax_invoice'] = new KDNA_Tax_Invoice();
         }
 
         // Load Elementor widgets if Elementor is active

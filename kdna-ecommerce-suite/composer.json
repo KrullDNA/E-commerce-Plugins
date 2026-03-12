@@ -1,0 +1,10 @@
+{
+    "name": "krulldna/kdna-ecommerce-suite",
+    "description": "E-commerce Suite for WooCommerce",
+    "require": {
+        "dompdf/dompdf": "^2.0"
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}
