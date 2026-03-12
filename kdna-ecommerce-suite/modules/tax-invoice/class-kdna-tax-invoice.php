@@ -166,7 +166,7 @@ class KDNA_Tax_Invoice {
         font-weight: 400;
         color: #1a1a1a;
         font-size: 10pt;
-        line-height: 1.5;
+        line-height: 1.3;
         margin: 0;
         padding: 0;
     }
@@ -175,13 +175,13 @@ class KDNA_Tax_Invoice {
     }
     .accent-bar {
         background-color: ' . $accent_color . ';
-        height: 14px;
+        height: 18px;
         width: 100%;
     }
     .header-table {
         width: 100%;
         margin-top: 25px;
-        margin-bottom: 35px;
+        margin-bottom: 30px;
     }
     .header-table td {
         vertical-align: bottom;
@@ -192,10 +192,11 @@ class KDNA_Tax_Invoice {
         font-weight: bold;
         text-align: right;
         letter-spacing: 0.5px;
+        line-height: 1.0;
     }
     .details-table {
         width: 100%;
-        margin-bottom: 35px;
+        margin-bottom: 30px;
     }
     .details-table td {
         vertical-align: top;
@@ -204,21 +205,22 @@ class KDNA_Tax_Invoice {
     .to-label {
         font-size: 9pt;
         color: #666;
-        margin-bottom: 4px;
+        margin-bottom: 2px;
     }
     .customer-name {
         font-weight: bold;
         font-size: 11pt;
-        margin-bottom: 2px;
+        margin-bottom: 1px;
     }
     .address-line {
-        margin: 1px 0;
+        margin: 0;
         font-size: 10pt;
+        line-height: 1.4;
     }
     .invoice-meta {
         text-align: right;
         font-size: 10pt;
-        line-height: 1.8;
+        line-height: 1.4;
     }
     .invoice-meta strong {
         font-weight: bold;
@@ -230,7 +232,7 @@ class KDNA_Tax_Invoice {
     .items-table th {
         background-color: #1a1a1a;
         color: #ffffff;
-        padding: 10px 12px;
+        padding: 6px 12px 8px 12px;
         text-align: left;
         font-weight: bold;
         font-size: 7.5pt;
@@ -246,10 +248,10 @@ class KDNA_Tax_Invoice {
         left: 50px;
         right: 50px;
         border-top: 1px solid #1a1a1a;
-        padding-top: 15px;
+        padding-top: 12px;
         text-align: center;
         font-size: 9pt;
-        line-height: 1.7;
+        line-height: 1.4;
     }
     .footer-section p {
         text-align: center;
@@ -468,7 +470,7 @@ class KDNA_Tax_Invoice {
     <table class="header-table">
         <tr>
             <td style="width:60%;">'
-                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;">' : '' ) .
+                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;vertical-align:bottom;">' : '' ) .
             '</td>
             <td style="width:40%;">
                 <div class="tax-invoice-title">TAX INVOICE</div>
@@ -526,7 +528,7 @@ class KDNA_Tax_Invoice {
             <!-- Total Paid -->
             <tr>
                 <td colspan="3" style="border:none;"></td>
-                <td style="background-color:' . $accent_color . ';padding:10px 12px;font-weight:bold;font-size:10pt;">TOTAL PAID</td>
+                <td style="background-color:' . $accent_color . ';padding:6px 12px 8px 12px;font-weight:bold;font-size:10pt;">TOTAL PAID</td>
                 <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:bold;font-size:10pt;">' . wc_price( $total_amount ) . '</td>
             </tr>
         </tbody>
@@ -636,7 +638,7 @@ class KDNA_Tax_Invoice {
     <table class="header-table">
         <tr>
             <td style="width:60%;">'
-                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;">' : '' ) .
+                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;vertical-align:bottom;">' : '' ) .
             '</td>
             <td style="width:40%;">
                 <div class="tax-invoice-title">TAX INVOICE</div>
@@ -696,7 +698,7 @@ class KDNA_Tax_Invoice {
             <!-- Total Paid -->
             <tr>
                 <td colspan="3" style="border:none;"></td>
-                <td style="background-color:' . $accent_color . ';padding:10px 12px;font-weight:bold;font-size:10pt;">TOTAL PAID</td>
+                <td style="background-color:' . $accent_color . ';padding:6px 12px 8px 12px;font-weight:bold;font-size:10pt;">TOTAL PAID</td>
                 <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:bold;font-size:10pt;">$' . number_format( $total, 2 ) . '</td>
             </tr>
         </tbody>
