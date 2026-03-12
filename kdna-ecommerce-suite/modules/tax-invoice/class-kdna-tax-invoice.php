@@ -166,7 +166,7 @@ class KDNA_Tax_Invoice {
         font-weight: 400;
         color: #1a1a1a;
         font-size: 10pt;
-        line-height: 1.3;
+        line-height: 1.15;
         margin: 0;
         padding: 0;
     }
@@ -184,7 +184,7 @@ class KDNA_Tax_Invoice {
         margin-bottom: 30px;
     }
     .header-table td {
-        vertical-align: bottom;
+        vertical-align: middle;
         padding: 0;
     }
     .tax-invoice-title {
@@ -215,12 +215,12 @@ class KDNA_Tax_Invoice {
     .address-line {
         margin: 0;
         font-size: 10pt;
-        line-height: 1.4;
+        line-height: 1.2;
     }
     .invoice-meta {
         text-align: right;
         font-size: 10pt;
-        line-height: 1.4;
+        line-height: 1.2;
     }
     .invoice-meta strong {
         font-weight: bold;
@@ -251,7 +251,7 @@ class KDNA_Tax_Invoice {
         padding-top: 12px;
         text-align: center;
         font-size: 9pt;
-        line-height: 1.4;
+        line-height: 1.2;
     }
     .footer-section p {
         text-align: center;
@@ -470,7 +470,7 @@ class KDNA_Tax_Invoice {
     <table class="header-table">
         <tr>
             <td style="width:60%;">'
-                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;vertical-align:bottom;">' : '' ) .
+                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;vertical-align:middle;">' : '' ) .
             '</td>
             <td style="width:40%;">
                 <div class="tax-invoice-title">TAX INVOICE</div>
@@ -638,7 +638,7 @@ class KDNA_Tax_Invoice {
     <table class="header-table">
         <tr>
             <td style="width:60%;">'
-                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;vertical-align:bottom;">' : '' ) .
+                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;vertical-align:middle;">' : '' ) .
             '</td>
             <td style="width:40%;">
                 <div class="tax-invoice-title">TAX INVOICE</div>
