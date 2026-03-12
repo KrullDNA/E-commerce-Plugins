@@ -189,7 +189,7 @@ class KDNA_Tax_Invoice {
     }
     .tax-invoice-title {
         font-size: 26pt;
-        font-weight: 500;
+        font-weight: bold;
         text-align: right;
         letter-spacing: 0.5px;
     }
@@ -207,7 +207,7 @@ class KDNA_Tax_Invoice {
         margin-bottom: 4px;
     }
     .customer-name {
-        font-weight: 500;
+        font-weight: bold;
         font-size: 11pt;
         margin-bottom: 2px;
     }
@@ -221,7 +221,7 @@ class KDNA_Tax_Invoice {
         line-height: 1.8;
     }
     .invoice-meta strong {
-        font-weight: 500;
+        font-weight: bold;
     }
     .items-table {
         width: 100%;
@@ -232,7 +232,7 @@ class KDNA_Tax_Invoice {
         color: #ffffff;
         padding: 10px 12px;
         text-align: left;
-        font-weight: 500;
+        font-weight: bold;
         font-size: 7.5pt;
         letter-spacing: 1.2px;
         text-transform: uppercase;
@@ -257,12 +257,12 @@ class KDNA_Tax_Invoice {
         padding: 0;
     }
     .footer-section strong {
-        font-weight: 500;
+        font-weight: bold;
     }';
     }
 
     /**
-     * Create a configured DOMPDF instance.
+     * Create a configured DOMPDF instance with the Apotheca font registered.
      */
     private function create_dompdf() {
         $options = new Options();
@@ -272,7 +272,45 @@ class KDNA_Tax_Invoice {
         $options->set( 'isFontSubsettingEnabled', true );
         $options->set( 'tempDir', sys_get_temp_dir() );
 
-        return new Dompdf( $options );
+        // Allow DOMPDF to read bundled font files from the plugin directory.
+        $plugin_fonts_dir = KDNA_ECOMMERCE_PATH . 'assets/fonts';
+        $chroot = $options->getChroot();
+        $chroot = is_array( $chroot ) ? $chroot : [ $chroot ];
+        $chroot[] = $plugin_fonts_dir;
+        $options->setChroot( $chroot );
+
+        $dompdf = new Dompdf( $options );
+
+        // Register bundled Apotheca TTF fonts with DOMPDF's font system.
+        $this->register_apotheca_font( $dompdf, $plugin_fonts_dir );
+
+        return $dompdf;
+    }
+
+    /**
+     * Register the Apotheca font files with DOMPDF's FontMetrics.
+     */
+    private function register_apotheca_font( $dompdf, $fonts_dir ) {
+        $font_map = [
+            [ 'weight' => 'normal', 'file' => $fonts_dir . '/Go-Book.ttf' ],
+            [ 'weight' => 'bold',   'file' => $fonts_dir . '/Go-Medium.ttf' ],
+        ];
+
+        $font_metrics = $dompdf->getFontMetrics();
+
+        foreach ( $font_map as $font ) {
+            if ( ! file_exists( $font['file'] ) ) {
+                continue;
+            }
+            $font_metrics->registerFont(
+                [
+                    'family' => 'Apotheca',
+                    'style'  => 'normal',
+                    'weight' => $font['weight'],
+                ],
+                $font['file']
+            );
+        }
     }
 
     /**
@@ -343,8 +381,7 @@ class KDNA_Tax_Invoice {
             trim( $state . ' ' . $postcode . ' ' . $country ),
         ] );
 
-        // Resolve Apotheca font from Elementor custom fonts or theme.
-        $font_face_css = $this->get_apotheca_font_css();
+        // Font is registered via DOMPDF's FontMetrics in create_dompdf().
 
         // Build items HTML.
         $items_html = '';
@@ -419,7 +456,6 @@ class KDNA_Tax_Invoice {
 <html>
 <head>
 <meta charset="UTF-8">
-' . $font_face_css . '
 <style>' . $this->get_invoice_css( $accent_color ) . '</style>
 </head>
 <body>
@@ -490,8 +526,8 @@ class KDNA_Tax_Invoice {
             <!-- Total Paid -->
             <tr>
                 <td colspan="3" style="border:none;"></td>
-                <td style="background-color:' . $accent_color . ';padding:10px 12px;font-weight:500;font-size:10pt;">TOTAL PAID</td>
-                <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:500;font-size:10pt;">' . wc_price( $total_amount ) . '</td>
+                <td style="background-color:' . $accent_color . ';padding:10px 12px;font-weight:bold;font-size:10pt;">TOTAL PAID</td>
+                <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:bold;font-size:10pt;">' . wc_price( $total_amount ) . '</td>
             </tr>
         </tbody>
     </table>
@@ -499,7 +535,7 @@ class KDNA_Tax_Invoice {
 
 <!-- Footer -->
 <div class="footer-section">
-    ' . wp_kses_post( $footer_text ) . '
+    <p>' . nl2br( wp_kses_post( $footer_text ) ) . '</p>
 </div>
 
 </body>
@@ -556,7 +592,7 @@ class KDNA_Tax_Invoice {
             }
         }
 
-        $font_face_css = $this->get_apotheca_font_css();
+        // Font is registered via DOMPDF's FontMetrics in create_dompdf().
 
         // Dummy line items.
         $dummy_items = [
@@ -588,7 +624,6 @@ class KDNA_Tax_Invoice {
 <html>
 <head>
 <meta charset="UTF-8">
-' . $font_face_css . '
 <style>' . $this->get_invoice_css( $accent_color ) . '</style>
 </head>
 <body>
@@ -661,8 +696,8 @@ class KDNA_Tax_Invoice {
             <!-- Total Paid -->
             <tr>
                 <td colspan="3" style="border:none;"></td>
-                <td style="background-color:' . $accent_color . ';padding:10px 12px;font-weight:500;font-size:10pt;">TOTAL PAID</td>
-                <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:500;font-size:10pt;">$' . number_format( $total, 2 ) . '</td>
+                <td style="background-color:' . $accent_color . ';padding:10px 12px;font-weight:bold;font-size:10pt;">TOTAL PAID</td>
+                <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:bold;font-size:10pt;">$' . number_format( $total, 2 ) . '</td>
             </tr>
         </tbody>
     </table>
@@ -670,7 +705,7 @@ class KDNA_Tax_Invoice {
 
 <!-- Footer -->
 <div class="footer-section">
-    ' . wp_kses_post( $footer_text ) . '
+    <p>' . nl2br( wp_kses_post( $footer_text ) ) . '</p>
 </div>
 
 </body>
@@ -679,135 +714,4 @@ class KDNA_Tax_Invoice {
         return $html;
     }
 
-    /**
-     * Load the Apotheca font for DOMPDF.
-     *
-     * Uses the TTF files bundled with the plugin (assets/fonts/).
-     * Falls back to searching Elementor custom fonts and common directories.
-     * DOMPDF only supports TTF/OTF — woff/woff2 are not usable.
-     */
-    private function get_apotheca_font_css() {
-        // Bundled font files (preferred — always available).
-        $plugin_fonts_dir = KDNA_ECOMMERCE_PATH . 'assets/fonts';
-        $bundled = [
-            '400' => $plugin_fonts_dir . '/Go-Book.ttf',
-            '500' => $plugin_fonts_dir . '/Go-Medium.ttf',
-        ];
-
-        $faces = [];
-        foreach ( $bundled as $weight => $file ) {
-            if ( file_exists( $file ) ) {
-                $data = base64_encode( file_get_contents( $file ) );
-                $faces[ $weight ] = 'url("data:font/ttf;base64,' . $data . '") format("truetype")';
-            }
-        }
-
-        // If bundled fonts found, use them directly.
-        if ( ! empty( $faces ) ) {
-            return $this->build_font_face_css( $faces );
-        }
-
-        // Fallback: search Elementor custom fonts and filesystem.
-        $font_paths = [];
-
-        $font_posts = get_posts( [
-            'post_type'      => 'elementor_font',
-            'posts_per_page' => 5,
-            'post_status'    => 'publish',
-            's'              => 'Apotheca',
-        ] );
-
-        if ( empty( $font_posts ) ) {
-            $font_posts = get_posts( [
-                'post_type'      => 'elementor_font',
-                'posts_per_page' => 20,
-                'post_status'    => 'publish',
-            ] );
-            $font_posts = array_filter( $font_posts, function ( $p ) {
-                return stripos( $p->post_title, 'apotheca' ) !== false;
-            } );
-        }
-
-        foreach ( $font_posts as $fp ) {
-            $meta = get_post_meta( $fp->ID );
-            foreach ( $meta as $key => $values ) {
-                foreach ( $values as $val ) {
-                    if ( is_string( $val ) && preg_match( '/\.(ttf|otf)$/i', $val ) ) {
-                        $font_paths[] = $val;
-                    }
-                    $unserialized = @unserialize( $val );
-                    if ( is_array( $unserialized ) ) {
-                        array_walk_recursive( $unserialized, function ( $v ) use ( &$font_paths ) {
-                            if ( is_string( $v ) && preg_match( '/\.(ttf|otf)$/i', $v ) ) {
-                                $font_paths[] = $v;
-                            }
-                        } );
-                    }
-                }
-            }
-        }
-
-        $possible_dirs = [
-            get_stylesheet_directory() . '/fonts',
-            get_stylesheet_directory() . '/assets/fonts',
-            wp_upload_dir()['basedir'] . '/elementor/custom-fonts',
-        ];
-
-        foreach ( $possible_dirs as $dir ) {
-            if ( ! is_dir( $dir ) ) {
-                continue;
-            }
-            $files = glob( $dir . '/*potheca*.*' );
-            if ( $files ) {
-                foreach ( $files as $file ) {
-                    if ( preg_match( '/\.(ttf|otf)$/i', $file ) ) {
-                        $font_paths[] = $file;
-                    }
-                }
-            }
-        }
-
-        // Resolve URLs to local paths.
-        $upload_dir = wp_upload_dir();
-        foreach ( array_unique( $font_paths ) as $path ) {
-            if ( filter_var( $path, FILTER_VALIDATE_URL ) ) {
-                if ( ! empty( $upload_dir['baseurl'] ) && strpos( $path, $upload_dir['baseurl'] ) === 0 ) {
-                    $path = str_replace( $upload_dir['baseurl'], $upload_dir['basedir'], $path );
-                } else {
-                    continue;
-                }
-            }
-            if ( file_exists( $path ) && preg_match( '/\.(ttf|otf)$/i', $path ) ) {
-                $ext    = strtolower( pathinfo( $path, PATHINFO_EXTENSION ) );
-                $format = $ext === 'otf' ? 'opentype' : 'truetype';
-                $mime   = $ext === 'otf' ? 'font/otf' : 'font/ttf';
-                $weight = preg_match( '/(medium|500|bold)/i', basename( $path ) ) ? '500' : '400';
-                $data   = base64_encode( file_get_contents( $path ) );
-                $faces[ $weight ] = 'url("data:' . $mime . ';base64,' . $data . '") format("' . $format . '")';
-            }
-        }
-
-        if ( empty( $faces ) ) {
-            return '';
-        }
-
-        return $this->build_font_face_css( $faces );
-    }
-
-    /**
-     * Build @font-face CSS block from an array of weight => src pairs.
-     */
-    private function build_font_face_css( $faces ) {
-        $css = '<style>' . "\n";
-        foreach ( $faces as $weight => $source ) {
-            $css .= '@font-face {
-    font-family: "Apotheca";
-    src: ' . $source . ';
-    font-weight: ' . $weight . ';
-    font-style: normal;
-}' . "\n";
-        }
-        $css .= '</style>';
-        return $css;
-    }
 }
