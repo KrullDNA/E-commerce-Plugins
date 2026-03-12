@@ -45,10 +45,26 @@ class KDNA_Admin {
         register_setting( 'kdna_ecommerce_sequential', 'kdna_sequential_settings', [
             'sanitize_callback' => [ $this, 'sanitize_array' ],
         ]);
+
+        // Tax Invoice settings
+        register_setting( 'kdna_ecommerce_invoice', 'kdna_invoice_settings', [
+            'sanitize_callback' => [ $this, 'sanitize_invoice_settings' ],
+        ]);
+    }
+
+    public function sanitize_invoice_settings( $input ) {
+        if ( ! is_array( $input ) ) {
+            return [];
+        }
+        $output = [];
+        $output['logo_id']      = absint( $input['logo_id'] ?? 0 );
+        $output['accent_color'] = sanitize_hex_color( $input['accent_color'] ?? '#C8E600' ) ?: '#C8E600';
+        $output['footer_text']  = wp_kses_post( $input['footer_text'] ?? '' );
+        return $output;
     }
 
     public function sanitize_modules( $input ) {
-        $modules = [ 'points_rewards', 'reviews', 'related_products', 'sequential_orders', 'australia_post', 'shipment_tracking' ];
+        $modules = [ 'points_rewards', 'reviews', 'related_products', 'sequential_orders', 'australia_post', 'shipment_tracking', 'tax_invoice' ];
         $output = [];
         foreach ( $modules as $module ) {
             $output[ $module ] = isset( $input[ $module ] ) ? 'yes' : 'no';
@@ -105,8 +121,10 @@ class KDNA_Admin {
         if ( 'toplevel_page_kdna-ecommerce' !== $hook ) {
             return;
         }
+        wp_enqueue_media();
+        wp_enqueue_style( 'wp-color-picker' );
         wp_enqueue_style( 'kdna-admin', KDNA_ECOMMERCE_URL . 'admin/css/admin.css', [], KDNA_ECOMMERCE_VERSION );
-        wp_enqueue_script( 'kdna-admin', KDNA_ECOMMERCE_URL . 'admin/js/admin.js', [ 'jquery' ], KDNA_ECOMMERCE_VERSION, true );
+        wp_enqueue_script( 'kdna-admin', KDNA_ECOMMERCE_URL . 'admin/js/admin.js', [ 'jquery', 'wp-color-picker' ], KDNA_ECOMMERCE_VERSION, true );
         wp_localize_script( 'kdna-admin', 'kdna_admin', [
             'ajax_url'            => admin_url( 'admin-ajax.php' ),
             'nonce'               => wp_create_nonce( 'kdna-admin-nonce' ),
@@ -143,6 +161,9 @@ class KDNA_Admin {
                 <a href="?page=kdna-ecommerce&tab=tracking" class="nav-tab <?php echo $active_tab === 'tracking' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Shipment Tracking', 'kdna-ecommerce' ); ?>
                 </a>
+                <a href="?page=kdna-ecommerce&tab=invoice" class="nav-tab <?php echo $active_tab === 'invoice' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Tax Invoice', 'kdna-ecommerce' ); ?>
+                </a>
             </nav>
 
             <div class="kdna-tab-content">
@@ -165,6 +186,9 @@ class KDNA_Admin {
                         break;
                     case 'tracking':
                         $this->render_tracking_tab( $modules );
+                        break;
+                    case 'invoice':
+                        $this->render_invoice_tab( $modules );
                         break;
                     default:
                         $this->render_general_tab( $modules );
@@ -239,6 +263,16 @@ class KDNA_Admin {
                             <span class="kdna-toggle-slider"></span>
                         </label>
                         <p class="description"><?php esc_html_e( 'Add tracking numbers to orders, displayed on the order page and in customer emails.', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Tax Invoice PDF', 'kdna-ecommerce' ); ?></th>
+                    <td>
+                        <label class="kdna-toggle">
+                            <input type="checkbox" name="kdna_ecommerce_modules[tax_invoice]" value="1" <?php checked( $modules['tax_invoice'] ?? 'no', 'yes' ); ?>>
+                            <span class="kdna-toggle-slider"></span>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Generate tax invoice PDFs attached to completed order emails and downloadable from My Account.', 'kdna-ecommerce' ); ?></p>
                     </td>
                 </tr>
             </table>
@@ -982,6 +1016,111 @@ class KDNA_Admin {
             </ul>
             <p><?php esc_html_e( 'Plus many more regional providers. Custom providers can be added per-order.', 'kdna-ecommerce' ); ?></p>
         </div>
+        <?php
+    }
+
+    private function render_invoice_tab( $modules ) {
+        $settings = wp_parse_args(
+            get_option( 'kdna_invoice_settings', [] ),
+            [
+                'logo_id'      => '',
+                'accent_color' => '#C8E600',
+                'footer_text'  => '',
+            ]
+        );
+        $active   = ( $modules['tax_invoice'] ?? 'no' ) === 'yes';
+        $logo_url = $settings['logo_id'] ? wp_get_attachment_image_url( $settings['logo_id'], 'medium' ) : '';
+        ?>
+        <form method="post" action="options.php">
+            <?php settings_fields( 'kdna_ecommerce_invoice' ); ?>
+
+            <?php if ( ! $active ) : ?>
+                <div class="notice notice-warning inline"><p><?php esc_html_e( 'This module is currently disabled. Enable it in the General tab.', 'kdna-ecommerce' ); ?></p></div>
+            <?php endif; ?>
+
+            <h2><?php esc_html_e( 'Tax Invoice Settings', 'kdna-ecommerce' ); ?></h2>
+            <table class="form-table">
+                <tr>
+                    <th>
+                        <label><?php esc_html_e( 'Invoice Logo', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Upload the logo displayed at the top-left of the invoice.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="hidden" id="kdna_invoice_logo_id" name="kdna_invoice_settings[logo_id]" value="<?php echo esc_attr( $settings['logo_id'] ); ?>">
+                        <div id="kdna-invoice-logo-preview" style="margin-bottom:10px;">
+                            <?php if ( $logo_url ) : ?>
+                                <img src="<?php echo esc_url( $logo_url ); ?>" style="max-height:80px;">
+                            <?php endif; ?>
+                        </div>
+                        <button type="button" class="button" id="kdna-upload-logo"><?php esc_html_e( 'Upload Logo', 'kdna-ecommerce' ); ?></button>
+                        <button type="button" class="button" id="kdna-remove-logo" style="<?php echo $settings['logo_id'] ? '' : 'display:none;'; ?>"><?php esc_html_e( 'Remove', 'kdna-ecommerce' ); ?></button>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="kdna_accent_color"><?php esc_html_e( 'Accent Colour', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Hex colour used for the top bar, table header, and Total Paid row.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="text" id="kdna_accent_color" name="kdna_invoice_settings[accent_color]" value="<?php echo esc_attr( $settings['accent_color'] ); ?>" class="kdna-color-picker" data-default-color="#C8E600">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label><?php esc_html_e( 'Footer Text', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Content displayed at the bottom of the invoice (e.g. company name, ABN, address).', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <?php
+                        wp_editor( $settings['footer_text'], 'kdna_invoice_footer_text', [
+                            'textarea_name' => 'kdna_invoice_settings[footer_text]',
+                            'textarea_rows' => 6,
+                            'media_buttons' => false,
+                            'teeny'         => false,
+                            'quicktags'     => true,
+                        ] );
+                        ?>
+                        <p class="description"><?php esc_html_e( 'Use HTML for formatting. Example: company name, ABN, address, email, website.', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button(); ?>
+        </form>
+
+        <script>
+        jQuery(function($) {
+            // Colour picker
+            $('.kdna-color-picker').wpColorPicker();
+
+            // Logo upload
+            var mediaFrame;
+            $('#kdna-upload-logo').on('click', function(e) {
+                e.preventDefault();
+                if (mediaFrame) { mediaFrame.open(); return; }
+                mediaFrame = wp.media({
+                    title: '<?php echo esc_js( __( 'Select Invoice Logo', 'kdna-ecommerce' ) ); ?>',
+                    button: { text: '<?php echo esc_js( __( 'Use as Logo', 'kdna-ecommerce' ) ); ?>' },
+                    multiple: false,
+                    library: { type: 'image' }
+                });
+                mediaFrame.on('select', function() {
+                    var attachment = mediaFrame.state().get('selection').first().toJSON();
+                    $('#kdna_invoice_logo_id').val(attachment.id);
+                    var imgUrl = attachment.sizes && attachment.sizes.medium ? attachment.sizes.medium.url : attachment.url;
+                    $('#kdna-invoice-logo-preview').html('<img src="' + imgUrl + '" style="max-height:80px;">');
+                    $('#kdna-remove-logo').show();
+                });
+                mediaFrame.open();
+            });
+
+            $('#kdna-remove-logo').on('click', function(e) {
+                e.preventDefault();
+                $('#kdna_invoice_logo_id').val('');
+                $('#kdna-invoice-logo-preview').html('');
+                $(this).hide();
+            });
+        });
+        </script>
         <?php
     }
 }
