@@ -244,7 +244,7 @@ class KDNA_Tax_Invoice {
     .items-table th.amt { text-align: right; }
     .footer-section {
         position: fixed;
-        bottom: 40px;
+        bottom: 20px;
         left: 50px;
         right: 50px;
         border-top: 1px solid #1a1a1a;
