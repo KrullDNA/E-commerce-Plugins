@@ -153,6 +153,115 @@ class KDNA_Tax_Invoice {
     }
 
     /**
+     * Shared CSS for invoice PDFs.
+     */
+    private function get_invoice_css( $accent_color ) {
+        return '
+    @page {
+        margin: 0;
+        size: A4;
+    }
+    body {
+        font-family: "Apotheca", Helvetica, Arial, sans-serif;
+        font-weight: 400;
+        color: #1a1a1a;
+        font-size: 10pt;
+        line-height: 1.5;
+        margin: 0;
+        padding: 0;
+    }
+    .page-wrap {
+        padding: 0 50px 120px 50px;
+    }
+    .accent-bar {
+        background-color: ' . $accent_color . ';
+        height: 14px;
+        width: 100%;
+    }
+    .header-table {
+        width: 100%;
+        margin-top: 25px;
+        margin-bottom: 35px;
+    }
+    .header-table td {
+        vertical-align: bottom;
+        padding: 0;
+    }
+    .tax-invoice-title {
+        font-size: 26pt;
+        font-weight: 500;
+        text-align: right;
+        letter-spacing: 0.5px;
+    }
+    .details-table {
+        width: 100%;
+        margin-bottom: 35px;
+    }
+    .details-table td {
+        vertical-align: top;
+        padding: 0;
+    }
+    .to-label {
+        font-size: 9pt;
+        color: #666;
+        margin-bottom: 4px;
+    }
+    .customer-name {
+        font-weight: 500;
+        font-size: 11pt;
+        margin-bottom: 2px;
+    }
+    .address-line {
+        margin: 1px 0;
+        font-size: 10pt;
+    }
+    .invoice-meta {
+        text-align: right;
+        font-size: 10pt;
+        line-height: 1.8;
+    }
+    .invoice-meta strong {
+        font-weight: 500;
+    }
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .items-table th {
+        background-color: #1a1a1a;
+        color: #ffffff;
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 500;
+        font-size: 7.5pt;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+    }
+    .items-table th.qty { text-align: center; }
+    .items-table th.uc  { text-align: right; }
+    .items-table th.amt { text-align: right; }
+    .footer-section {
+        position: fixed;
+        bottom: 40px;
+        left: 50px;
+        right: 50px;
+        border-top: 1px solid #1a1a1a;
+        padding-top: 15px;
+        text-align: center;
+        font-size: 9pt;
+        line-height: 1.7;
+    }
+    .footer-section p {
+        text-align: center;
+        margin: 0;
+        padding: 0;
+    }
+    .footer-section strong {
+        font-weight: 500;
+    }';
+    }
+
+    /**
      * Create a configured DOMPDF instance.
      */
     private function create_dompdf() {
@@ -311,106 +420,7 @@ class KDNA_Tax_Invoice {
 <head>
 <meta charset="UTF-8">
 ' . $font_face_css . '
-<style>
-    @page {
-        margin: 0;
-        size: A4;
-    }
-    body {
-        font-family: "Apotheca", Helvetica, Arial, sans-serif;
-        font-weight: 400;
-        color: #1a1a1a;
-        font-size: 10pt;
-        line-height: 1.5;
-        margin: 0;
-        padding: 0;
-    }
-    .page-wrap {
-        padding: 0 50px 120px 50px;
-        position: relative;
-        min-height: 100%;
-    }
-    .accent-bar {
-        background-color: ' . $accent_color . ';
-        height: 8px;
-        width: 100%;
-    }
-    .header-table {
-        width: 100%;
-        margin-top: 25px;
-        margin-bottom: 35px;
-    }
-    .header-table td {
-        vertical-align: bottom;
-        padding: 0;
-    }
-    .tax-invoice-title {
-        font-size: 26pt;
-        font-weight: 500;
-        text-align: right;
-        letter-spacing: 0.5px;
-    }
-    .details-table {
-        width: 100%;
-        margin-bottom: 35px;
-    }
-    .details-table td {
-        vertical-align: top;
-        padding: 0;
-    }
-    .to-label {
-        font-size: 9pt;
-        color: #666;
-        margin-bottom: 4px;
-    }
-    .customer-name {
-        font-weight: 500;
-        font-size: 11pt;
-        margin-bottom: 2px;
-    }
-    .address-line {
-        margin: 1px 0;
-        font-size: 10pt;
-    }
-    .invoice-meta {
-        text-align: right;
-        font-size: 10pt;
-        line-height: 1.8;
-    }
-    .invoice-meta strong {
-        font-weight: 500;
-    }
-    .items-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .items-table th {
-        background-color: ' . $accent_color . ';
-        padding: 10px 12px;
-        text-align: left;
-        font-weight: 500;
-        font-size: 7.5pt;
-        letter-spacing: 1.2px;
-        text-transform: uppercase;
-    }
-    .items-table th.qty { text-align: center; }
-    .items-table th.uc  { text-align: right; }
-    .items-table th.amt { text-align: right; }
-    .footer-section {
-        position: fixed;
-        bottom: 40px;
-        left: 50px;
-        right: 50px;
-        border-top: 1px solid #1a1a1a;
-        padding-top: 15px;
-        text-align: center;
-        font-size: 9pt;
-        line-height: 1.7;
-    }
-    .footer-section strong {
-        font-weight: 500;
-    }
-</style>
+<style>' . $this->get_invoice_css( $accent_color ) . '</style>
 </head>
 <body>
 
@@ -579,106 +589,7 @@ class KDNA_Tax_Invoice {
 <head>
 <meta charset="UTF-8">
 ' . $font_face_css . '
-<style>
-    @page {
-        margin: 0;
-        size: A4;
-    }
-    body {
-        font-family: "Apotheca", Helvetica, Arial, sans-serif;
-        font-weight: 400;
-        color: #1a1a1a;
-        font-size: 10pt;
-        line-height: 1.5;
-        margin: 0;
-        padding: 0;
-    }
-    .page-wrap {
-        padding: 0 50px 120px 50px;
-        position: relative;
-        min-height: 100%;
-    }
-    .accent-bar {
-        background-color: ' . $accent_color . ';
-        height: 8px;
-        width: 100%;
-    }
-    .header-table {
-        width: 100%;
-        margin-top: 25px;
-        margin-bottom: 35px;
-    }
-    .header-table td {
-        vertical-align: bottom;
-        padding: 0;
-    }
-    .tax-invoice-title {
-        font-size: 26pt;
-        font-weight: 500;
-        text-align: right;
-        letter-spacing: 0.5px;
-    }
-    .details-table {
-        width: 100%;
-        margin-bottom: 35px;
-    }
-    .details-table td {
-        vertical-align: top;
-        padding: 0;
-    }
-    .to-label {
-        font-size: 9pt;
-        color: #666;
-        margin-bottom: 4px;
-    }
-    .customer-name {
-        font-weight: 500;
-        font-size: 11pt;
-        margin-bottom: 2px;
-    }
-    .address-line {
-        margin: 1px 0;
-        font-size: 10pt;
-    }
-    .invoice-meta {
-        text-align: right;
-        font-size: 10pt;
-        line-height: 1.8;
-    }
-    .invoice-meta strong {
-        font-weight: 500;
-    }
-    .items-table {
-        width: 100%;
-        border-collapse: collapse;
-    }
-    .items-table th {
-        background-color: ' . $accent_color . ';
-        padding: 10px 12px;
-        text-align: left;
-        font-weight: 500;
-        font-size: 7.5pt;
-        letter-spacing: 1.2px;
-        text-transform: uppercase;
-    }
-    .items-table th.qty { text-align: center; }
-    .items-table th.uc  { text-align: right; }
-    .items-table th.amt { text-align: right; }
-    .footer-section {
-        position: fixed;
-        bottom: 40px;
-        left: 50px;
-        right: 50px;
-        border-top: 1px solid #1a1a1a;
-        padding-top: 15px;
-        text-align: center;
-        font-size: 9pt;
-        line-height: 1.7;
-    }
-    .footer-section strong {
-        font-weight: 500;
-    }
-</style>
+<style>' . $this->get_invoice_css( $accent_color ) . '</style>
 </head>
 <body>
 
@@ -771,9 +682,11 @@ class KDNA_Tax_Invoice {
     /**
      * Attempt to load the Apotheca font from Elementor custom fonts or theme.
      * Returns a <style> block with @font-face declarations, or empty string.
+     *
+     * DOMPDF only supports TTF/OTF fonts — woff/woff2 are skipped.
      */
     private function get_apotheca_font_css() {
-        $font_urls = [];
+        $font_paths = [];
 
         // Check Elementor custom font posts.
         $font_posts = get_posts( [
@@ -784,7 +697,6 @@ class KDNA_Tax_Invoice {
         ] );
 
         if ( empty( $font_posts ) ) {
-            // Broader search – match any font post title containing "apotheca".
             $font_posts = get_posts( [
                 'post_type'      => 'elementor_font',
                 'posts_per_page' => 20,
@@ -795,31 +707,23 @@ class KDNA_Tax_Invoice {
             } );
         }
 
+        // Extract font file URLs/paths from Elementor meta.
         foreach ( $font_posts as $fp ) {
             $meta = get_post_meta( $fp->ID );
-            // Elementor stores font files in repeater meta fields.
             foreach ( $meta as $key => $values ) {
                 foreach ( $values as $val ) {
-                    if ( is_string( $val ) && preg_match( '/\.(woff2?|ttf|otf|eot)$/i', $val ) ) {
-                        $font_urls[] = $val;
-                    }
-                    // Try unserialized data.
+                    $this->collect_font_paths( $val, $font_paths );
                     $unserialized = @unserialize( $val );
                     if ( is_array( $unserialized ) ) {
-                        array_walk_recursive( $unserialized, function ( $v ) use ( &$font_urls ) {
-                            if ( is_string( $v ) && preg_match( '/\.(woff2?|ttf|otf|eot)$/i', $v ) ) {
-                                $font_urls[] = $v;
-                            }
-                            if ( is_string( $v ) && filter_var( $v, FILTER_VALIDATE_URL ) && preg_match( '/font/i', $v ) ) {
-                                $font_urls[] = $v;
-                            }
+                        array_walk_recursive( $unserialized, function ( $v ) use ( &$font_paths ) {
+                            $this->collect_font_paths( $v, $font_paths );
                         } );
                     }
                 }
             }
         }
 
-        // Also check common filesystem locations.
+        // Check common filesystem locations.
         $possible_dirs = [
             get_stylesheet_directory() . '/fonts',
             get_stylesheet_directory() . '/assets/fonts',
@@ -833,57 +737,56 @@ class KDNA_Tax_Invoice {
             $files = glob( $dir . '/*potheca*.*' );
             if ( $files ) {
                 foreach ( $files as $file ) {
-                    if ( preg_match( '/\.(woff2?|ttf|otf)$/i', $file ) ) {
-                        $font_urls[] = $file;
+                    if ( preg_match( '/\.(ttf|otf)$/i', $file ) ) {
+                        $font_paths[] = $file;
                     }
                 }
             }
         }
 
-        if ( empty( $font_urls ) ) {
+        // Resolve URLs to local file paths.
+        $resolved = [];
+        $upload_dir = wp_upload_dir();
+        foreach ( array_unique( $font_paths ) as $path ) {
+            // If it's a URL, try to convert to a local filesystem path.
+            if ( filter_var( $path, FILTER_VALIDATE_URL ) ) {
+                if ( ! empty( $upload_dir['baseurl'] ) && strpos( $path, $upload_dir['baseurl'] ) === 0 ) {
+                    $path = str_replace( $upload_dir['baseurl'], $upload_dir['basedir'], $path );
+                } else {
+                    continue; // Skip remote URLs we can't resolve.
+                }
+            }
+            if ( file_exists( $path ) && preg_match( '/\.(ttf|otf)$/i', $path ) ) {
+                $resolved[] = $path;
+            }
+        }
+
+        if ( empty( $resolved ) ) {
             return '';
         }
 
-        // Group by weight (look for 400/regular and 500/medium hints in filename).
+        // Group by weight.
         $faces = [];
-        foreach ( $font_urls as $url ) {
-            // Determine format.
-            $ext = strtolower( pathinfo( $url, PATHINFO_EXTENSION ) );
-            $format_map = [
-                'woff2' => 'woff2',
-                'woff'  => 'woff',
-                'ttf'   => 'truetype',
-                'otf'   => 'opentype',
-            ];
-            $format = $format_map[ $ext ] ?? 'truetype';
+        foreach ( $resolved as $file ) {
+            $ext    = strtolower( pathinfo( $file, PATHINFO_EXTENSION ) );
+            $format = $ext === 'otf' ? 'opentype' : 'truetype';
 
-            // Determine weight from filename hints.
-            $basename = strtolower( basename( $url ) );
-            if ( preg_match( '/(medium|500|bold)/i', $basename ) ) {
-                $weight = '500';
-            } else {
-                $weight = '400';
-            }
+            $basename = strtolower( basename( $file ) );
+            $weight   = preg_match( '/(medium|500|bold)/i', $basename ) ? '500' : '400';
 
-            // Convert local paths to data URIs for DOMPDF compatibility.
-            $src = $url;
-            if ( file_exists( $url ) ) {
-                $data = base64_encode( file_get_contents( $url ) );
-                $mime = 'application/octet-stream';
-                if ( $ext === 'woff2' ) $mime = 'font/woff2';
-                elseif ( $ext === 'woff' ) $mime = 'font/woff';
-                elseif ( $ext === 'ttf' ) $mime = 'font/ttf';
-                $src = 'data:' . $mime . ';base64,' . $data;
-            }
+            // Embed as data URI for DOMPDF.
+            $data = base64_encode( file_get_contents( $file ) );
+            $mime = $ext === 'otf' ? 'font/otf' : 'font/ttf';
+            $src  = 'data:' . $mime . ';base64,' . $data;
 
-            $faces[ $weight ][] = 'url("' . $src . '") format("' . $format . '")';
+            $faces[ $weight ] = 'url("' . $src . '") format("' . $format . '")';
         }
 
         $css = '<style>' . "\n";
-        foreach ( $faces as $weight => $sources ) {
+        foreach ( $faces as $weight => $source ) {
             $css .= '@font-face {
     font-family: "Apotheca";
-    src: ' . implode( ', ', $sources ) . ';
+    src: ' . $source . ';
     font-weight: ' . $weight . ';
     font-style: normal;
 }' . "\n";
@@ -891,5 +794,17 @@ class KDNA_Tax_Invoice {
         $css .= '</style>';
 
         return $css;
+    }
+
+    /**
+     * Collect TTF/OTF font paths from a meta value string.
+     */
+    private function collect_font_paths( $val, &$paths ) {
+        if ( ! is_string( $val ) ) {
+            return;
+        }
+        if ( preg_match( '/\.(ttf|otf)$/i', $val ) ) {
+            $paths[] = $val;
+        }
     }
 }
