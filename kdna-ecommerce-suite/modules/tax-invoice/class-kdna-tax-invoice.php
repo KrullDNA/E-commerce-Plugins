@@ -15,6 +15,9 @@ class KDNA_Tax_Invoice {
 
         // Handle PDF download requests.
         add_action( 'init', [ $this, 'handle_invoice_download' ] );
+
+        // Handle test PDF download (admin only).
+        add_action( 'admin_init', [ $this, 'handle_test_pdf_download' ] );
     }
 
     /**
@@ -472,6 +475,282 @@ class KDNA_Tax_Invoice {
                 <td colspan="3" style="border:none;"></td>
                 <td style="background-color:' . $accent_color . ';padding:10px 12px;font-weight:500;font-size:10pt;">TOTAL PAID</td>
                 <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:500;font-size:10pt;">' . wc_price( $total_amount ) . '</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<!-- Footer -->
+<div class="footer-section">
+    ' . wp_kses_post( $footer_text ) . '
+</div>
+
+</body>
+</html>';
+
+        return $html;
+    }
+
+    /**
+     * Handle the test PDF download from the admin settings page.
+     */
+    public function handle_test_pdf_download() {
+        if ( empty( $_GET['kdna_test_invoice'] ) ) {
+            return;
+        }
+
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            wp_die( __( 'You do not have permission to do this.', 'kdna-ecommerce' ) );
+        }
+
+        if ( ! wp_verify_nonce( $_GET['_wpnonce'] ?? '', 'kdna_test_invoice' ) ) {
+            wp_die( __( 'Invalid request.', 'kdna-ecommerce' ) );
+        }
+
+        $html   = $this->build_test_invoice_html();
+        $dompdf = $this->create_dompdf();
+
+        $dompdf->loadHtml( $html );
+        $dompdf->setPaper( 'A4', 'portrait' );
+        $dompdf->render();
+
+        header( 'Content-Type: application/pdf' );
+        header( 'Content-Disposition: inline; filename="test-tax-invoice.pdf"' );
+        header( 'Cache-Control: private, max-age=0, must-revalidate' );
+
+        echo $dompdf->output();
+        exit;
+    }
+
+    /**
+     * Build invoice HTML with dummy data for previewing the layout.
+     */
+    private function build_test_invoice_html() {
+        $settings = wp_parse_args(
+            get_option( 'kdna_invoice_settings', [] ),
+            self::get_default_settings()
+        );
+
+        $accent_color = sanitize_hex_color( $settings['accent_color'] ) ?: '#C8E600';
+        $footer_text  = $settings['footer_text'];
+        $logo_id      = $settings['logo_id'];
+        $logo_src     = '';
+
+        if ( $logo_id ) {
+            $logo_path = get_attached_file( $logo_id );
+            if ( $logo_path && file_exists( $logo_path ) ) {
+                $mime     = mime_content_type( $logo_path );
+                $data     = base64_encode( file_get_contents( $logo_path ) );
+                $logo_src = 'data:' . $mime . ';base64,' . $data;
+            }
+        }
+
+        $font_face_css = $this->get_apotheca_font_css();
+
+        // Dummy line items.
+        $dummy_items = [
+            [ 'name' => 'Organic Lavender Hand Cream 250ml',  'qty' => 2, 'unit_cost' => 24.95 ],
+            [ 'name' => 'Rosehip Facial Serum 30ml',          'qty' => 1, 'unit_cost' => 49.50 ],
+            [ 'name' => 'Tea Tree Shampoo Bar 120g',          'qty' => 3, 'unit_cost' => 14.00 ],
+        ];
+
+        $items_html     = '';
+        $subtotal       = 0;
+
+        foreach ( $dummy_items as $item ) {
+            $line_total = $item['qty'] * $item['unit_cost'];
+            $subtotal  += $line_total;
+            $items_html .= '<tr>';
+            $items_html .= '<td style="width:55px;padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;"></td>';
+            $items_html .= '<td style="padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;">' . esc_html( $item['name'] ) . '</td>';
+            $items_html .= '<td style="padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;text-align:center;">' . esc_html( $item['qty'] ) . '</td>';
+            $items_html .= '<td style="padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;text-align:right;">$' . number_format( $item['unit_cost'], 2 ) . '</td>';
+            $items_html .= '<td style="padding:12px 8px;border-bottom:1px solid #eee;vertical-align:middle;text-align:right;">$' . number_format( $line_total, 2 ) . '</td>';
+            $items_html .= '</tr>';
+        }
+
+        $shipping    = 9.95;
+        $tax         = round( $subtotal * 0.10, 2 );
+        $total       = $subtotal + $shipping + $tax;
+
+        $html = '<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+' . $font_face_css . '
+<style>
+    @page {
+        margin: 0;
+        size: A4;
+    }
+    body {
+        font-family: "Apotheca", Helvetica, Arial, sans-serif;
+        font-weight: 400;
+        color: #1a1a1a;
+        font-size: 10pt;
+        line-height: 1.5;
+        margin: 0;
+        padding: 0;
+    }
+    .page-wrap {
+        padding: 0 50px 120px 50px;
+        position: relative;
+        min-height: 100%;
+    }
+    .accent-bar {
+        background-color: ' . $accent_color . ';
+        height: 8px;
+        width: 100%;
+    }
+    .header-table {
+        width: 100%;
+        margin-top: 25px;
+        margin-bottom: 35px;
+    }
+    .header-table td {
+        vertical-align: bottom;
+        padding: 0;
+    }
+    .tax-invoice-title {
+        font-size: 26pt;
+        font-weight: 500;
+        text-align: right;
+        letter-spacing: 0.5px;
+    }
+    .details-table {
+        width: 100%;
+        margin-bottom: 35px;
+    }
+    .details-table td {
+        vertical-align: top;
+        padding: 0;
+    }
+    .to-label {
+        font-size: 9pt;
+        color: #666;
+        margin-bottom: 4px;
+    }
+    .customer-name {
+        font-weight: 500;
+        font-size: 11pt;
+        margin-bottom: 2px;
+    }
+    .address-line {
+        margin: 1px 0;
+        font-size: 10pt;
+    }
+    .invoice-meta {
+        text-align: right;
+        font-size: 10pt;
+        line-height: 1.8;
+    }
+    .invoice-meta strong {
+        font-weight: 500;
+    }
+    .items-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    .items-table th {
+        background-color: ' . $accent_color . ';
+        padding: 10px 12px;
+        text-align: left;
+        font-weight: 500;
+        font-size: 7.5pt;
+        letter-spacing: 1.2px;
+        text-transform: uppercase;
+    }
+    .items-table th.qty { text-align: center; }
+    .items-table th.uc  { text-align: right; }
+    .items-table th.amt { text-align: right; }
+    .footer-section {
+        position: fixed;
+        bottom: 40px;
+        left: 50px;
+        right: 50px;
+        border-top: 1px solid #1a1a1a;
+        padding-top: 15px;
+        text-align: center;
+        font-size: 9pt;
+        line-height: 1.7;
+    }
+    .footer-section strong {
+        font-weight: 500;
+    }
+</style>
+</head>
+<body>
+
+<div class="accent-bar"></div>
+
+<div class="page-wrap">
+
+    <!-- Header: Logo + Title -->
+    <table class="header-table">
+        <tr>
+            <td style="width:60%;">'
+                . ( $logo_src ? '<img src="' . $logo_src . '" style="max-height:55px;max-width:250px;">' : '' ) .
+            '</td>
+            <td style="width:40%;">
+                <div class="tax-invoice-title">TAX INVOICE</div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- TO / Invoice Details -->
+    <table class="details-table">
+        <tr>
+            <td style="width:55%;">
+                <div class="to-label">TO:</div>
+                <div class="customer-name">Jane Smith</div>
+                <div class="address-line">42 Wallaby Way</div>
+                <div class="address-line">Sydney</div>
+                <div class="address-line">New South Wales 2000 Australia</div>
+                <div class="address-line" style="margin-top:4px;">0412 345 678</div>
+            </td>
+            <td style="width:45%;">
+                <div class="invoice-meta">
+                    <strong>Invoice no:</strong> 10042<br>
+                    <strong>Date:</strong> ' . wp_date( 'd/m/Y' ) . '<br><br>
+                    <strong>Payment method:</strong> Credit Card (Stripe)
+                </div>
+            </td>
+        </tr>
+    </table>
+
+    <!-- Items Table -->
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th colspan="2">DESCRIPTION</th>
+                <th class="qty">QUANTITY</th>
+                <th class="uc">UNIT COST</th>
+                <th class="amt">AMOUNT</th>
+            </tr>
+        </thead>
+        <tbody>
+            ' . $items_html . '
+
+            <!-- Subtotal -->
+            <tr>
+                <td colspan="4" style="padding:8px 12px;text-align:right;border:none;font-size:9.5pt;">Sub-total</td>
+                <td style="padding:8px 12px;text-align:right;border:none;font-size:9.5pt;">$' . number_format( $subtotal, 2 ) . '</td>
+            </tr>
+            <!-- Shipping -->
+            <tr>
+                <td colspan="4" style="padding:6px 12px;text-align:right;border:none;font-size:9.5pt;">Shipping</td>
+                <td style="padding:6px 12px;text-align:right;border:none;font-size:9.5pt;">$' . number_format( $shipping, 2 ) . '</td>
+            </tr>
+            <!-- Tax -->
+            <tr>
+                <td colspan="4" style="padding:6px 12px;text-align:right;border:none;font-size:9.5pt;">Tax</td>
+                <td style="padding:6px 12px;text-align:right;border:none;font-size:9.5pt;">$' . number_format( $tax, 2 ) . '</td>
+            </tr>
+            <!-- Total Paid -->
+            <tr>
+                <td colspan="3" style="border:none;"></td>
+                <td style="background-color:' . $accent_color . ';padding:10px 12px;font-weight:500;font-size:10pt;">TOTAL PAID</td>
+                <td style="background-color:' . $accent_color . ';padding:10px 12px;text-align:right;font-weight:500;font-size:10pt;">$' . number_format( $total, 2 ) . '</td>
             </tr>
         </tbody>
     </table>
