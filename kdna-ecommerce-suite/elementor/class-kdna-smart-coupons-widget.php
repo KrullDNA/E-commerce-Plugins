@@ -76,12 +76,21 @@ class KDNA_Smart_Coupons_Widget extends \Elementor\Widget_Base {
         $this->add_control( 'coupon_design', [
             'label'   => __( 'Card Design', 'kdna-ecommerce' ),
             'type'    => \Elementor\Controls_Manager::SELECT,
-            'default' => 'flat',
+            'default' => 'basic',
             'options' => [
-                'flat'    => __( 'Flat (dashed border)', 'kdna-ecommerce' ),
-                'ticket'  => __( 'Ticket', 'kdna-ecommerce' ),
-                'minimal' => __( 'Minimal (left accent)', 'kdna-ecommerce' ),
-                'bold'    => __( 'Bold (full colour)', 'kdna-ecommerce' ),
+                'basic'     => __( 'Basic', 'kdna-ecommerce' ),
+                'flat'      => __( 'Flat', 'kdna-ecommerce' ),
+                'promotion' => __( 'Promotion', 'kdna-ecommerce' ),
+                'ticket'    => __( 'Ticket', 'kdna-ecommerce' ),
+                'festive'   => __( 'Festive', 'kdna-ecommerce' ),
+                'special'   => __( 'Special', 'kdna-ecommerce' ),
+                'shipment'  => __( 'Shipment', 'kdna-ecommerce' ),
+                'cutout'    => __( 'Cutout', 'kdna-ecommerce' ),
+                'deliver'   => __( 'Deliver', 'kdna-ecommerce' ),
+                'clipper'   => __( 'Clipper', 'kdna-ecommerce' ),
+                'deal'      => __( 'Deal', 'kdna-ecommerce' ),
+                'minimal'   => __( 'Minimal', 'kdna-ecommerce' ),
+                'bold'      => __( 'Bold', 'kdna-ecommerce' ),
             ],
         ]);
 
@@ -450,8 +459,8 @@ class KDNA_Smart_Coupons_Widget extends \Elementor\Widget_Base {
         }
 
         $design  = $settings['coupon_design'];
-        $primary = $settings['card_primary_color'] ?? '#39cccc';
-        $text_on = $settings['card_text_on_primary'] ?? '#ffffff';
+        $bg_color = $settings['card_primary_color'] ?? '#39cccc';
+        $fg_color = $settings['card_text_on_primary'] ?? '#ffffff';
 
         // Enqueue frontend assets.
         wp_enqueue_style( 'kdna-smart-coupons', KDNA_ECOMMERCE_URL . 'modules/smart-coupons/assets/smart-coupons.css', [], KDNA_ECOMMERCE_VERSION );
@@ -472,13 +481,13 @@ class KDNA_Smart_Coupons_Widget extends \Elementor\Widget_Base {
         echo '<div class="kdna-sc-coupon-grid kdna-sc-design-' . esc_attr( $design ) . '">';
 
         foreach ( $coupons as $coupon ) {
-            $this->render_coupon_card( $coupon, $settings, $primary, $text_on );
+            $this->render_coupon_card( $coupon, $settings, $bg_color, $fg_color );
         }
 
         echo '</div></div>';
     }
 
-    private function render_coupon_card( $coupon, $settings, $primary, $text_on ) {
+    private function render_coupon_card( $coupon, $settings, $bg_color, $fg_color ) {
         $code        = $coupon->get_code();
         $amount      = $coupon->get_amount();
         $type        = $coupon->get_discount_type();
@@ -505,7 +514,7 @@ class KDNA_Smart_Coupons_Widget extends \Elementor\Widget_Base {
         $show_apply = $settings['show_apply_button'] === 'yes';
         ?>
         <div class="kdna-sc-coupon-card <?php echo $is_applied ? 'kdna-sc-applied' : ''; ?>"
-             style="--kdna-sc-primary:<?php echo esc_attr( $primary ); ?>;--kdna-sc-text:<?php echo esc_attr( $text_on ); ?>;"
+             style="--kdna-sc-bg:<?php echo esc_attr( $bg_color ); ?>;--kdna-sc-fg:<?php echo esc_attr( $fg_color ); ?>;"
              data-code="<?php echo esc_attr( $code ); ?>">
             <div class="kdna-sc-coupon-amount">
                 <span class="kdna-sc-discount"><?php echo $display; ?></span>
