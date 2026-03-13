@@ -50,6 +50,11 @@ class KDNA_Admin {
         register_setting( 'kdna_ecommerce_invoice', 'kdna_invoice_settings', [
             'sanitize_callback' => [ $this, 'sanitize_invoice_settings' ],
         ]);
+
+        // Smart Coupons settings
+        register_setting( 'kdna_ecommerce_smart_coupons', 'kdna_smart_coupons_settings', [
+            'sanitize_callback' => [ $this, 'sanitize_smart_coupons_settings' ],
+        ]);
     }
 
     public function sanitize_invoice_settings( $input ) {
@@ -64,11 +69,28 @@ class KDNA_Admin {
     }
 
     public function sanitize_modules( $input ) {
-        $modules = [ 'points_rewards', 'reviews', 'related_products', 'sequential_orders', 'australia_post', 'shipment_tracking', 'tax_invoice' ];
+        $modules = [ 'points_rewards', 'reviews', 'related_products', 'sequential_orders', 'australia_post', 'shipment_tracking', 'tax_invoice', 'smart_coupons' ];
         $output = [];
         foreach ( $modules as $module ) {
             $output[ $module ] = isset( $input[ $module ] ) ? 'yes' : 'no';
         }
+        return $output;
+    }
+
+    public function sanitize_smart_coupons_settings( $input ) {
+        if ( ! is_array( $input ) ) {
+            return [];
+        }
+        $defaults  = KDNA_Smart_Coupons::get_default_settings();
+        $output    = [];
+        $checkboxes = [ 'show_on_cart', 'show_on_checkout', 'show_on_myaccount', 'enable_url_coupons', 'enable_auto_apply' ];
+        foreach ( $checkboxes as $field ) {
+            $output[ $field ] = isset( $input[ $field ] ) ? 'yes' : 'no';
+        }
+        $output['coupon_design']     = sanitize_text_field( $input['coupon_design'] ?? $defaults['coupon_design'] );
+        $output['primary_color']     = sanitize_hex_color( $input['primary_color'] ?? $defaults['primary_color'] ) ?: $defaults['primary_color'];
+        $output['text_color']        = sanitize_hex_color( $input['text_color'] ?? $defaults['text_color'] ) ?: $defaults['text_color'];
+        $output['max_coupons_shown'] = absint( $input['max_coupons_shown'] ?? $defaults['max_coupons_shown'] );
         return $output;
     }
 
@@ -164,6 +186,9 @@ class KDNA_Admin {
                 <a href="?page=kdna-ecommerce&tab=invoice" class="nav-tab <?php echo $active_tab === 'invoice' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Tax Invoice', 'kdna-ecommerce' ); ?>
                 </a>
+                <a href="?page=kdna-ecommerce&tab=smart_coupons" class="nav-tab <?php echo $active_tab === 'smart_coupons' ? 'nav-tab-active' : ''; ?>">
+                    <?php esc_html_e( 'Smart Coupons', 'kdna-ecommerce' ); ?>
+                </a>
             </nav>
 
             <div class="kdna-tab-content">
@@ -189,6 +214,9 @@ class KDNA_Admin {
                         break;
                     case 'invoice':
                         $this->render_invoice_tab( $modules );
+                        break;
+                    case 'smart_coupons':
+                        $this->render_smart_coupons_tab( $modules );
                         break;
                     default:
                         $this->render_general_tab( $modules );
@@ -273,6 +301,16 @@ class KDNA_Admin {
                             <span class="kdna-toggle-slider"></span>
                         </label>
                         <p class="description"><?php esc_html_e( 'Generate tax invoice PDFs attached to completed order emails and downloadable from My Account.', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th scope="row"><?php esc_html_e( 'Smart Coupons', 'kdna-ecommerce' ); ?></th>
+                    <td>
+                        <label class="kdna-toggle">
+                            <input type="checkbox" name="kdna_ecommerce_modules[smart_coupons]" value="1" <?php checked( $modules['smart_coupons'] ?? 'no', 'yes' ); ?>>
+                            <span class="kdna-toggle-slider"></span>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Auto-apply coupons, URL-based coupon sharing, store credits, and display available coupons on cart, checkout, and My Account.', 'kdna-ecommerce' ); ?></p>
                     </td>
                 </tr>
             </table>
@@ -1134,6 +1172,170 @@ class KDNA_Admin {
                 $('#kdna-invoice-logo-preview').html('');
                 $(this).hide();
             });
+        });
+        </script>
+        <?php
+    }
+
+    private function render_smart_coupons_tab( $modules ) {
+        require_once KDNA_ECOMMERCE_PATH . 'modules/smart-coupons/class-kdna-smart-coupons.php';
+        $settings = KDNA_Smart_Coupons::get_settings();
+        $active   = ( $modules['smart_coupons'] ?? 'no' ) === 'yes';
+        ?>
+        <form method="post" action="options.php">
+            <?php settings_fields( 'kdna_ecommerce_smart_coupons' ); ?>
+
+            <?php if ( ! $active ) : ?>
+                <div class="notice notice-warning inline"><p><?php esc_html_e( 'This module is currently disabled. Enable it in the General tab.', 'kdna-ecommerce' ); ?></p></div>
+            <?php endif; ?>
+
+            <h2><?php esc_html_e( 'Smart Coupons Settings', 'kdna-ecommerce' ); ?></h2>
+
+            <h3><?php esc_html_e( 'Features', 'kdna-ecommerce' ); ?></h3>
+            <table class="form-table">
+                <tr>
+                    <th>
+                        <label><?php esc_html_e( 'Auto-Apply Coupons', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Automatically apply eligible coupons to the cart. Individual coupons must also have the auto-apply option enabled.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <label class="kdna-toggle">
+                            <input type="checkbox" name="kdna_smart_coupons_settings[enable_auto_apply]" value="yes" <?php checked( $settings['enable_auto_apply'], 'yes' ); ?>>
+                            <span class="kdna-toggle-slider"></span>
+                        </label>
+                        <p class="description"><?php esc_html_e( 'Coupons marked as "Auto-apply" will be automatically applied when cart conditions are met.', 'kdna-ecommerce' ); ?></p>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label><?php esc_html_e( 'URL Coupons', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Apply coupons via URL. Share links like yoursite.com/?apply_coupon=CODE or yoursite.com/coupon/CODE/', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <label class="kdna-toggle">
+                            <input type="checkbox" name="kdna_smart_coupons_settings[enable_url_coupons]" value="yes" <?php checked( $settings['enable_url_coupons'], 'yes' ); ?>>
+                            <span class="kdna-toggle-slider"></span>
+                        </label>
+                        <p class="description">
+                            <?php esc_html_e( 'Formats:', 'kdna-ecommerce' ); ?><br>
+                            <code><?php echo esc_html( home_url( '/?apply_coupon=CODE' ) ); ?></code><br>
+                            <code><?php echo esc_html( home_url( '/coupon/CODE/' ) ); ?></code>
+                        </p>
+                    </td>
+                </tr>
+            </table>
+
+            <h3><?php esc_html_e( 'Display Settings', 'kdna-ecommerce' ); ?></h3>
+            <table class="form-table">
+                <tr>
+                    <th>
+                        <label><?php esc_html_e( 'Show on Cart', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Display available coupons on the cart page.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <label class="kdna-toggle">
+                            <input type="checkbox" name="kdna_smart_coupons_settings[show_on_cart]" value="yes" <?php checked( $settings['show_on_cart'], 'yes' ); ?>>
+                            <span class="kdna-toggle-slider"></span>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label><?php esc_html_e( 'Show on Checkout', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Display available coupons on the checkout page.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <label class="kdna-toggle">
+                            <input type="checkbox" name="kdna_smart_coupons_settings[show_on_checkout]" value="yes" <?php checked( $settings['show_on_checkout'], 'yes' ); ?>>
+                            <span class="kdna-toggle-slider"></span>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label><?php esc_html_e( 'Show on My Account', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Display available coupons on the My Account dashboard.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <label class="kdna-toggle">
+                            <input type="checkbox" name="kdna_smart_coupons_settings[show_on_myaccount]" value="yes" <?php checked( $settings['show_on_myaccount'], 'yes' ); ?>>
+                            <span class="kdna-toggle-slider"></span>
+                        </label>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="kdna_sc_max_coupons"><?php esc_html_e( 'Max Coupons Displayed', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Maximum number of available coupons to show at once.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="number" id="kdna_sc_max_coupons" name="kdna_smart_coupons_settings[max_coupons_shown]" value="<?php echo esc_attr( $settings['max_coupons_shown'] ); ?>" min="1" max="50" class="small-text">
+                    </td>
+                </tr>
+            </table>
+
+            <h3><?php esc_html_e( 'Coupon Card Styling', 'kdna-ecommerce' ); ?></h3>
+            <table class="form-table">
+                <tr>
+                    <th>
+                        <label for="kdna_sc_design"><?php esc_html_e( 'Coupon Design', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Choose the visual style for coupon cards displayed on the frontend.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <select id="kdna_sc_design" name="kdna_smart_coupons_settings[coupon_design]">
+                            <option value="flat" <?php selected( $settings['coupon_design'], 'flat' ); ?>><?php esc_html_e( 'Flat (dashed border)', 'kdna-ecommerce' ); ?></option>
+                            <option value="ticket" <?php selected( $settings['coupon_design'], 'ticket' ); ?>><?php esc_html_e( 'Ticket', 'kdna-ecommerce' ); ?></option>
+                            <option value="minimal" <?php selected( $settings['coupon_design'], 'minimal' ); ?>><?php esc_html_e( 'Minimal (left accent)', 'kdna-ecommerce' ); ?></option>
+                            <option value="bold" <?php selected( $settings['coupon_design'], 'bold' ); ?>><?php esc_html_e( 'Bold (full colour)', 'kdna-ecommerce' ); ?></option>
+                        </select>
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="kdna_sc_primary_color"><?php esc_html_e( 'Primary Colour', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Main colour used for coupon card accents and backgrounds.', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="text" id="kdna_sc_primary_color" name="kdna_smart_coupons_settings[primary_color]" value="<?php echo esc_attr( $settings['primary_color'] ); ?>" class="kdna-color-picker" data-default-color="#39cccc">
+                    </td>
+                </tr>
+                <tr>
+                    <th>
+                        <label for="kdna_sc_text_color"><?php esc_html_e( 'Text Colour', 'kdna-ecommerce' ); ?></label>
+                        <span class="kdna-tooltip dashicons dashicons-editor-help" title="<?php esc_attr_e( 'Text colour used on coloured backgrounds (amount section, buttons).', 'kdna-ecommerce' ); ?>"></span>
+                    </th>
+                    <td>
+                        <input type="text" id="kdna_sc_text_color" name="kdna_smart_coupons_settings[text_color]" value="<?php echo esc_attr( $settings['text_color'] ); ?>" class="kdna-color-picker" data-default-color="#ffffff">
+                    </td>
+                </tr>
+            </table>
+
+            <?php submit_button(); ?>
+        </form>
+
+        <hr>
+        <h3><?php esc_html_e( 'How It Works', 'kdna-ecommerce' ); ?></h3>
+        <div class="kdna-module-info">
+            <h4><?php esc_html_e( 'Auto-Apply Coupons', 'kdna-ecommerce' ); ?></h4>
+            <p><?php esc_html_e( 'When editing a coupon in WooCommerce, you will see a new "Auto-apply coupon" checkbox. Enable it on any coupon to have it automatically applied to qualifying carts.', 'kdna-ecommerce' ); ?></p>
+
+            <h4><?php esc_html_e( 'URL Coupon Sharing', 'kdna-ecommerce' ); ?></h4>
+            <p><?php esc_html_e( 'Share coupon codes via URLs. When a customer visits the link, the coupon is automatically applied to their cart.', 'kdna-ecommerce' ); ?></p>
+
+            <h4><?php esc_html_e( 'Store Credit / Gift Certificates', 'kdna-ecommerce' ); ?></h4>
+            <p><?php esc_html_e( 'A new "Store Credit / Gift Certificate" discount type is added to WooCommerce coupons. The credit balance is automatically deducted when orders are completed.', 'kdna-ecommerce' ); ?></p>
+
+            <h4><?php esc_html_e( 'Elementor Widget', 'kdna-ecommerce' ); ?></h4>
+            <p><?php esc_html_e( 'Use the "KDNA Available Coupons" Elementor widget to display available coupons anywhere in your templates with full styling control.', 'kdna-ecommerce' ); ?></p>
+
+            <h4><?php esc_html_e( 'Shortcode', 'kdna-ecommerce' ); ?></h4>
+            <p><code>[kdna_available_coupons]</code></p>
+            <p><?php esc_html_e( 'Optional attributes: design="flat|ticket|minimal|bold" color="#39cccc" text="#ffffff" heading="Your Heading"', 'kdna-ecommerce' ); ?></p>
+        </div>
+
+        <script>
+        jQuery(function($) {
+            $('.kdna-color-picker').wpColorPicker();
         });
         </script>
         <?php

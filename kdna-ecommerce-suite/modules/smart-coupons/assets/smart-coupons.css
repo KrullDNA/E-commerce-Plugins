@@ -1,0 +1,221 @@
+/* KDNA Smart Coupons - Frontend Styles */
+
+.kdna-sc-available-coupons {
+    margin-bottom: 30px;
+}
+
+.kdna-sc-heading {
+    font-size: 1.2em;
+    margin-bottom: 15px;
+    font-weight: 600;
+}
+
+.kdna-sc-coupon-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 15px;
+}
+
+/* Coupon Card Base */
+.kdna-sc-coupon-card {
+    display: flex;
+    align-items: center;
+    border: 2px dashed var(--kdna-sc-primary, #39cccc);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    position: relative;
+}
+
+.kdna-sc-coupon-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.kdna-sc-coupon-card.kdna-sc-applied {
+    opacity: 0.7;
+    border-style: solid;
+}
+
+/* Amount Section */
+.kdna-sc-coupon-amount {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 90px;
+    padding: 15px;
+    background: var(--kdna-sc-primary, #39cccc);
+    color: var(--kdna-sc-text, #ffffff);
+    text-align: center;
+    align-self: stretch;
+}
+
+.kdna-sc-discount {
+    font-size: 1.4em;
+    font-weight: 700;
+    line-height: 1.2;
+}
+
+.kdna-sc-discount .woocommerce-Price-amount {
+    color: inherit;
+    font-size: inherit;
+}
+
+.kdna-sc-label {
+    font-size: 0.7em;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    opacity: 0.9;
+    margin-top: 2px;
+}
+
+/* Details Section */
+.kdna-sc-coupon-details {
+    flex: 1;
+    padding: 12px 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.kdna-sc-code {
+    font-family: monospace;
+    font-size: 0.95em;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: #333;
+}
+
+.kdna-sc-desc {
+    font-size: 0.8em;
+    color: #666;
+    line-height: 1.3;
+}
+
+.kdna-sc-expiry {
+    font-size: 0.75em;
+    color: #999;
+}
+
+/* Apply Button */
+.kdna-sc-apply-btn {
+    margin: 10px 12px 10px 0;
+    padding: 8px 16px;
+    background: var(--kdna-sc-primary, #39cccc);
+    color: var(--kdna-sc-text, #ffffff);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85em;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: opacity 0.2s;
+    flex-shrink: 0;
+}
+
+.kdna-sc-apply-btn:hover {
+    opacity: 0.85;
+}
+
+.kdna-sc-apply-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.kdna-sc-applied-badge {
+    margin: 10px 12px 10px 0;
+    padding: 6px 12px;
+    background: #4caf50;
+    color: #fff;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+/* Design: Flat (default) */
+.kdna-sc-design-flat .kdna-sc-coupon-card {
+    border-style: dashed;
+}
+
+/* Design: Ticket */
+.kdna-sc-design-ticket .kdna-sc-coupon-card {
+    border-style: solid;
+    border-width: 1px;
+    border-color: #ddd;
+}
+
+.kdna-sc-design-ticket .kdna-sc-coupon-amount {
+    position: relative;
+}
+
+.kdna-sc-design-ticket .kdna-sc-coupon-amount::after {
+    content: '';
+    position: absolute;
+    right: -8px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 16px;
+    height: 16px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 50%;
+}
+
+/* Design: Minimal */
+.kdna-sc-design-minimal .kdna-sc-coupon-card {
+    border: 1px solid #e0e0e0;
+    border-left: 4px solid var(--kdna-sc-primary, #39cccc);
+}
+
+.kdna-sc-design-minimal .kdna-sc-coupon-amount {
+    background: transparent;
+    color: var(--kdna-sc-primary, #39cccc);
+    min-width: 70px;
+    padding: 10px;
+}
+
+/* Design: Bold */
+.kdna-sc-design-bold .kdna-sc-coupon-card {
+    border: none;
+    background: var(--kdna-sc-primary, #39cccc);
+    color: var(--kdna-sc-text, #ffffff);
+}
+
+.kdna-sc-design-bold .kdna-sc-coupon-amount {
+    background: rgba(0, 0, 0, 0.15);
+}
+
+.kdna-sc-design-bold .kdna-sc-code,
+.kdna-sc-design-bold .kdna-sc-desc,
+.kdna-sc-design-bold .kdna-sc-expiry {
+    color: var(--kdna-sc-text, #ffffff);
+}
+
+.kdna-sc-design-bold .kdna-sc-desc {
+    opacity: 0.85;
+}
+
+.kdna-sc-design-bold .kdna-sc-expiry {
+    opacity: 0.7;
+}
+
+.kdna-sc-design-bold .kdna-sc-apply-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+/* Responsive */
+@media (max-width: 480px) {
+    .kdna-sc-coupon-grid {
+        grid-template-columns: 1fr;
+    }
+    .kdna-sc-coupon-card {
+        flex-wrap: wrap;
+    }
+    .kdna-sc-coupon-amount {
+        min-width: 70px;
+    }
+}

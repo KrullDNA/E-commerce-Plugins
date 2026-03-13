@@ -60,6 +60,7 @@ class KDNA_Ecommerce_Suite {
                 'australia_post'     => 'no',
                 'shipment_tracking'  => 'no',
                 'tax_invoice'        => 'no',
+                'smart_coupons'      => 'no',
             ]);
         }
         flush_rewrite_rules();
@@ -126,6 +127,11 @@ class KDNA_Ecommerce_Suite {
         // even before the module is enabled.
         KDNA_Tax_Invoice::register_test_pdf_handler();
 
+        if ( $this->is_module_active( 'smart_coupons' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/smart-coupons/class-kdna-smart-coupons.php';
+            $this->modules['smart_coupons'] = new KDNA_Smart_Coupons();
+        }
+
         // Load Elementor widgets if Elementor is active
         add_action( 'elementor/widgets/register', [ $this, 'register_elementor_widgets' ] );
     }
@@ -150,6 +156,11 @@ class KDNA_Ecommerce_Suite {
         if ( $this->is_module_active( 'related_products' ) ) {
             require_once KDNA_ECOMMERCE_PATH . 'elementor/class-kdna-related-products-widget.php';
             $widgets_manager->register( new KDNA_Related_Products_Widget() );
+        }
+
+        if ( $this->is_module_active( 'smart_coupons' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'elementor/class-kdna-smart-coupons-widget.php';
+            $widgets_manager->register( new KDNA_Smart_Coupons_Widget() );
         }
     }
 
