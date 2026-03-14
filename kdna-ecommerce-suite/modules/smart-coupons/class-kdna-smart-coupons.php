@@ -37,6 +37,10 @@ class KDNA_Smart_Coupons {
     const META_ACTION_MESSAGE          = '_kdna_sc_action_message';
     const META_ACTION_INCLUDE_IN_EMAIL = '_kdna_sc_action_include_in_email';
 
+    // ----- Usage restriction meta keys -----
+    const META_PRODUCT_BRANDS          = '_kdna_sc_product_brands';
+    const META_EXCLUDE_BRANDS          = '_kdna_sc_exclude_brands';
+
     // ----- Post-meta keys for products -----
     const META_PRODUCT_COUPONS         = '_kdna_sc_coupon_titles';
     const META_PRODUCT_GIFT_IMAGE      = '_kdna_sc_enable_gift_image';
@@ -93,6 +97,9 @@ class KDNA_Smart_Coupons {
 
         // ---- Coupon categories taxonomy ----
         add_action( 'init', [ $this, 'register_coupon_category_taxonomy' ] );
+
+        // ---- Brand restriction validation ----
+        add_filter( 'woocommerce_coupon_is_valid_for_product', [ $this, 'validate_brand_restriction' ], 10, 4 );
 
         // ---- Execute coupon actions (add products to cart) ----
         add_action( 'woocommerce_applied_coupon', [ $this, 'execute_coupon_actions' ] );
@@ -469,7 +476,37 @@ class KDNA_Smart_Coupons {
     }
 
     public function add_coupon_restriction_fields( $coupon_id, $coupon ) {
-        // No additional restriction fields needed here - "For new customers?" is now on the General tab.
+        // Product brands include/exclude fields (Smart Coupons additions).
+        $brands         = get_post_meta( $coupon_id, self::META_PRODUCT_BRANDS, true );
+        $exclude_brands = get_post_meta( $coupon_id, self::META_EXCLUDE_BRANDS, true );
+        $brand_terms    = get_terms( [ 'taxonomy' => 'product_brand', 'hide_empty' => false ] );
+        if ( ! is_wp_error( $brand_terms ) && ! empty( $brand_terms ) ) :
+            $brands         = is_array( $brands ) ? $brands : [];
+            $exclude_brands = is_array( $exclude_brands ) ? $exclude_brands : [];
+        ?>
+        <div class="options_group" style="background:#f0fff0;border-top:1px solid #e0e0e0;">
+            <p class="form-field">
+                <label for="kdna_sc_product_brands"><?php esc_html_e( 'Product brands', 'kdna-ecommerce' ); ?></label>
+                <select id="kdna_sc_product_brands" name="<?php echo esc_attr( self::META_PRODUCT_BRANDS ); ?>[]" class="wc-enhanced-select" multiple="multiple" style="width:50%;" data-placeholder="<?php esc_attr_e( 'Any brand', 'kdna-ecommerce' ); ?>">
+                    <?php foreach ( $brand_terms as $term ) : ?>
+                        <option value="<?php echo esc_attr( $term->term_id ); ?>" <?php selected( in_array( (string) $term->term_id, $brands, true ) ); ?>><?php echo esc_html( $term->name ); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php echo wc_help_tip( __( 'Products must belong to one of these brands for the coupon to apply. Leave empty for any brand.', 'kdna-ecommerce' ) ); ?>
+            </p>
+
+            <p class="form-field">
+                <label for="kdna_sc_exclude_brands"><?php esc_html_e( 'Exclude brands', 'kdna-ecommerce' ); ?></label>
+                <select id="kdna_sc_exclude_brands" name="<?php echo esc_attr( self::META_EXCLUDE_BRANDS ); ?>[]" class="wc-enhanced-select" multiple="multiple" style="width:50%;" data-placeholder="<?php esc_attr_e( 'No brands', 'kdna-ecommerce' ); ?>">
+                    <?php foreach ( $brand_terms as $term ) : ?>
+                        <option value="<?php echo esc_attr( $term->term_id ); ?>" <?php selected( in_array( (string) $term->term_id, $exclude_brands, true ) ); ?>><?php echo esc_html( $term->name ); ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <?php echo wc_help_tip( __( 'Products from these brands will be excluded from the coupon. Leave empty for no brand exclusion.', 'kdna-ecommerce' ) ); ?>
+            </p>
+        </div>
+        <?php
+        endif;
     }
 
     public function add_coupon_data_tabs( $tabs ) {
@@ -609,6 +646,18 @@ class KDNA_Smart_Coupons {
         } else {
             delete_post_meta( $coupon_id, self::META_ACTION_ADD_PRODUCTS );
         }
+
+        // Brand restriction arrays.
+        if ( isset( $_POST[ self::META_PRODUCT_BRANDS ] ) ) {
+            update_post_meta( $coupon_id, self::META_PRODUCT_BRANDS, array_map( 'sanitize_text_field', (array) $_POST[ self::META_PRODUCT_BRANDS ] ) );
+        } else {
+            delete_post_meta( $coupon_id, self::META_PRODUCT_BRANDS );
+        }
+        if ( isset( $_POST[ self::META_EXCLUDE_BRANDS ] ) ) {
+            update_post_meta( $coupon_id, self::META_EXCLUDE_BRANDS, array_map( 'sanitize_text_field', (array) $_POST[ self::META_EXCLUDE_BRANDS ] ) );
+        } else {
+            delete_post_meta( $coupon_id, self::META_EXCLUDE_BRANDS );
+        }
     }
 
     // =========================================================================
@@ -636,6 +685,48 @@ class KDNA_Smart_Coupons {
             'query_var'    => true,
             'rewrite'      => false,
         ] );
+    }
+
+    // =========================================================================
+    // Brand Restriction Validation
+    // =========================================================================
+
+    public function validate_brand_restriction( $valid, $product, $coupon, $values ) {
+        if ( ! $valid ) {
+            return $valid;
+        }
+
+        $coupon_id      = $coupon->get_id();
+        $allowed_brands = get_post_meta( $coupon_id, self::META_PRODUCT_BRANDS, true );
+        $exclude_brands = get_post_meta( $coupon_id, self::META_EXCLUDE_BRANDS, true );
+
+        if ( empty( $allowed_brands ) && empty( $exclude_brands ) ) {
+            return $valid;
+        }
+
+        // Get product brand term IDs.
+        $product_id    = $product->get_id();
+        $product_brands = wp_get_post_terms( $product_id, 'product_brand', [ 'fields' => 'ids' ] );
+        if ( is_wp_error( $product_brands ) ) {
+            $product_brands = [];
+        }
+        $product_brands = array_map( 'strval', $product_brands );
+
+        // Check allowed brands.
+        if ( ! empty( $allowed_brands ) && is_array( $allowed_brands ) ) {
+            if ( empty( array_intersect( $product_brands, $allowed_brands ) ) ) {
+                return false;
+            }
+        }
+
+        // Check excluded brands.
+        if ( ! empty( $exclude_brands ) && is_array( $exclude_brands ) ) {
+            if ( ! empty( array_intersect( $product_brands, $exclude_brands ) ) ) {
+                return false;
+            }
+        }
+
+        return $valid;
     }
 
     // =========================================================================
