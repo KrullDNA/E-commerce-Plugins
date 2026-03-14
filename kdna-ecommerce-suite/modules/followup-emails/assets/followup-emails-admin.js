@@ -1,5 +1,5 @@
 /**
- * KDNA Follow-up Emails - Admin JavaScript
+ * KDNA Emails - Admin JavaScript
  * Handles the email editor UI: type selection, trigger config, delay, merge tags, coupon config,
  * exclusions, test email, queue management, reports, and subscriber management.
  */

@@ -9,7 +9,7 @@
  */
 defined( 'ABSPATH' ) || exit;
 
-class KDNA_AutomateWoo {
+class KDNA_Automations {
 
     // Custom post type.
     const CPT = 'kdna_aw_workflow';
@@ -122,7 +122,7 @@ class KDNA_AutomateWoo {
 
     public static function get_settings() {
         return wp_parse_args(
-            get_option( 'kdna_automatewoo_settings', [] ),
+            get_option( 'kdna_automations_settings', [] ),
             self::get_default_settings()
         );
     }
@@ -333,8 +333,8 @@ class KDNA_AutomateWoo {
         if ( $post_type !== self::CPT && strpos( $hook, 'kdna-aw-' ) === false ) {
             return;
         }
-        wp_enqueue_style( 'kdna-automatewoo-admin', KDNA_ECOMMERCE_URL . 'modules/automatewoo/assets/automatewoo-admin.css', [], KDNA_ECOMMERCE_VERSION );
-        wp_enqueue_script( 'kdna-automatewoo-admin', KDNA_ECOMMERCE_URL . 'modules/automatewoo/assets/automatewoo-admin.js', [ 'jquery', 'jquery-ui-sortable', 'wp-util' ], KDNA_ECOMMERCE_VERSION, true );
+        wp_enqueue_style( 'kdna-automations-admin', KDNA_ECOMMERCE_URL . 'modules/automations/assets/automations-admin.css', [], KDNA_ECOMMERCE_VERSION );
+        wp_enqueue_script( 'kdna-automations-admin', KDNA_ECOMMERCE_URL . 'modules/automations/assets/automations-admin.js', [ 'jquery', 'jquery-ui-sortable', 'wp-util' ], KDNA_ECOMMERCE_VERSION, true );
 
         $workflow_data = null;
         if ( isset( $_GET['post'] ) ) {
@@ -348,7 +348,7 @@ class KDNA_AutomateWoo {
             ];
         }
 
-        wp_localize_script( 'kdna-automatewoo-admin', 'kdnaAW', [
+        wp_localize_script( 'kdna-automations-admin', 'kdnaAW', [
             'ajaxUrl'        => admin_url( 'admin-ajax.php' ),
             'nonce'          => wp_create_nonce( 'kdna_aw_admin' ),
             'workflow'       => $workflow_data,
@@ -2395,19 +2395,19 @@ class KDNA_AutomateWoo {
         if ( ! function_exists( 'as_has_scheduled_action' ) ) return;
 
         if ( ! as_has_scheduled_action( 'kdna_aw_process_queue' ) ) {
-            as_schedule_recurring_action( time(), 60, 'kdna_aw_process_queue', [], 'kdna-automatewoo' );
+            as_schedule_recurring_action( time(), 60, 'kdna_aw_process_queue', [], 'kdna-automations' );
         }
 
         if ( $this->settings['abandoned_cart_enabled'] === 'yes' && ! as_has_scheduled_action( 'kdna_aw_check_abandoned_carts' ) ) {
-            as_schedule_recurring_action( time(), 300, 'kdna_aw_check_abandoned_carts', [], 'kdna-automatewoo' );
+            as_schedule_recurring_action( time(), 300, 'kdna_aw_check_abandoned_carts', [], 'kdna-automations' );
         }
 
         if ( ! as_has_scheduled_action( 'kdna_aw_clean_inactive_carts' ) ) {
-            as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'kdna_aw_clean_inactive_carts', [], 'kdna-automatewoo' );
+            as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'kdna_aw_clean_inactive_carts', [], 'kdna-automations' );
         }
 
         if ( $this->settings['clean_expired_coupons'] === 'yes' && ! as_has_scheduled_action( 'kdna_aw_clean_expired_coupons' ) ) {
-            as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'kdna_aw_clean_expired_coupons', [], 'kdna-automatewoo' );
+            as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'kdna_aw_clean_expired_coupons', [], 'kdna-automations' );
         }
     }
 

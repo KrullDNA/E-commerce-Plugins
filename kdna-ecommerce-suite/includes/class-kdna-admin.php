@@ -57,8 +57,8 @@ class KDNA_Admin {
         ]);
 
         // Automations settings
-        register_setting( 'kdna_ecommerce_automatewoo', 'kdna_automatewoo_settings', [
-            'sanitize_callback' => [ $this, 'sanitize_automatewoo_settings' ],
+        register_setting( 'kdna_ecommerce_automations', 'kdna_automations_settings', [
+            'sanitize_callback' => [ $this, 'sanitize_automations_settings' ],
         ]);
 
         // Emails settings
@@ -79,7 +79,7 @@ class KDNA_Admin {
     }
 
     public function sanitize_modules( $input ) {
-        $modules = [ 'points_rewards', 'reviews', 'related_products', 'sequential_orders', 'australia_post', 'shipment_tracking', 'tax_invoice', 'smart_coupons', 'automatewoo', 'followup_emails' ];
+        $modules = [ 'points_rewards', 'reviews', 'related_products', 'sequential_orders', 'australia_post', 'shipment_tracking', 'tax_invoice', 'smart_coupons', 'automations', 'followup_emails' ];
         $output = [];
         foreach ( $modules as $module ) {
             $output[ $module ] = isset( $input[ $module ] ) ? 'yes' : 'no';
@@ -244,7 +244,7 @@ class KDNA_Admin {
                 <a href="?page=kdna-ecommerce&tab=smart_coupons" class="nav-tab <?php echo $active_tab === 'smart_coupons' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Smart Coupons', 'kdna-ecommerce' ); ?>
                 </a>
-                <a href="?page=kdna-ecommerce&tab=automatewoo" class="nav-tab <?php echo $active_tab === 'automatewoo' ? 'nav-tab-active' : ''; ?>">
+                <a href="?page=kdna-ecommerce&tab=automations" class="nav-tab <?php echo $active_tab === 'automations' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e( 'Automations', 'kdna-ecommerce' ); ?>
                 </a>
                 <a href="?page=kdna-ecommerce&tab=followup_emails" class="nav-tab <?php echo $active_tab === 'followup_emails' ? 'nav-tab-active' : ''; ?>">
@@ -279,8 +279,8 @@ class KDNA_Admin {
                     case 'smart_coupons':
                         $this->render_smart_coupons_tab( $modules );
                         break;
-                    case 'automatewoo':
-                        $this->render_automatewoo_tab( $modules );
+                    case 'automations':
+                        $this->render_automations_tab( $modules );
                         break;
                     case 'followup_emails':
                         $this->render_followup_emails_tab( $modules );
@@ -384,7 +384,7 @@ class KDNA_Admin {
                     <th scope="row"><?php esc_html_e( 'Automations', 'kdna-ecommerce' ); ?></th>
                     <td>
                         <label class="kdna-toggle">
-                            <input type="checkbox" name="kdna_ecommerce_modules[automatewoo]" value="1" <?php checked( $modules['automatewoo'] ?? 'no', 'yes' ); ?>>
+                            <input type="checkbox" name="kdna_ecommerce_modules[automations]" value="1" <?php checked( $modules['automations'] ?? 'no', 'yes' ); ?>>
                             <span class="kdna-toggle-slider"></span>
                         </label>
                         <p class="description"><?php esc_html_e( 'Marketing automation workflows: abandoned cart recovery, win-back campaigns, review requests, SMS, Mailchimp, ActiveCampaign, and more.', 'kdna-ecommerce' ); ?></p>
@@ -1764,10 +1764,10 @@ class KDNA_Admin {
     }
 
     // ===================================================================
-    // AutomateWoo Settings
+    // Automations Settings
     // ===================================================================
 
-    public function sanitize_automatewoo_settings( $input ) {
+    public function sanitize_automations_settings( $input ) {
         if ( ! is_array( $input ) ) {
             return [];
         }
@@ -1815,11 +1815,11 @@ class KDNA_Admin {
         return $output;
     }
 
-    private function render_automatewoo_tab( $modules ) {
-        require_once KDNA_ECOMMERCE_PATH . 'modules/automatewoo/class-kdna-automatewoo.php';
-        $defaults = KDNA_AutomateWoo::get_default_settings();
-        $settings = wp_parse_args( get_option( 'kdna_automatewoo_settings', [] ), $defaults );
-        $active   = ( $modules['automatewoo'] ?? 'no' ) === 'yes';
+    private function render_automations_tab( $modules ) {
+        require_once KDNA_ECOMMERCE_PATH . 'modules/automations/class-kdna-automations.php';
+        $defaults = KDNA_Automations::get_default_settings();
+        $settings = wp_parse_args( get_option( 'kdna_automations_settings', [] ), $defaults );
+        $active   = ( $modules['automations'] ?? 'no' ) === 'yes';
 
         $section = isset( $_GET['aw_section'] ) ? sanitize_text_field( $_GET['aw_section'] ) : 'general';
         $sections = [
@@ -1833,7 +1833,7 @@ class KDNA_Admin {
         ];
         ?>
         <form method="post" action="options.php">
-            <?php settings_fields( 'kdna_ecommerce_automatewoo' ); ?>
+            <?php settings_fields( 'kdna_ecommerce_automations' ); ?>
 
             <?php if ( ! $active ) : ?>
                 <div class="notice notice-warning inline"><p><?php esc_html_e( 'This module is currently disabled. Enable it in the General tab.', 'kdna-ecommerce' ); ?></p></div>
@@ -1842,7 +1842,7 @@ class KDNA_Admin {
             <ul class="subsubsub" style="margin-bottom: 15px;">
                 <?php $i = 0; foreach ( $sections as $key => $label ) : $i++; ?>
                     <li>
-                        <a href="?page=kdna-ecommerce&tab=automatewoo&aw_section=<?php echo esc_attr( $key ); ?>"
+                        <a href="?page=kdna-ecommerce&tab=automations&aw_section=<?php echo esc_attr( $key ); ?>"
                            class="<?php echo $section === $key ? 'current' : ''; ?>">
                             <?php echo esc_html( $label ); ?>
                         </a><?php echo $i < count( $sections ) ? ' |' : ''; ?>
@@ -1855,7 +1855,7 @@ class KDNA_Admin {
             // Hidden inputs to preserve settings from other sub-sections.
             foreach ( $settings as $key => $val ) {
                 if ( is_array( $val ) ) { continue; }
-                echo '<input type="hidden" class="kdna-aw-preserve" name="kdna_automatewoo_settings[' . esc_attr( $key ) . ']" value="' . esc_attr( $val ) . '" />';
+                echo '<input type="hidden" class="kdna-aw-preserve" name="kdna_automations_settings[' . esc_attr( $key ) . ']" value="' . esc_attr( $val ) . '" />';
             }
 
             switch ( $section ) {
@@ -1916,7 +1916,7 @@ class KDNA_Admin {
             <tr>
                 <th><label for="aw_optin_mode"><?php esc_html_e( 'Opt-in Mode', 'kdna-ecommerce' ); ?></label></th>
                 <td>
-                    <select name="kdna_automatewoo_settings[optin_mode]" id="aw_optin_mode">
+                    <select name="kdna_automations_settings[optin_mode]" id="aw_optin_mode">
                         <option value="optin" <?php selected( $s['optin_mode'], 'optin' ); ?>><?php esc_html_e( 'Opt-in (recommended)', 'kdna-ecommerce' ); ?></option>
                         <option value="optout" <?php selected( $s['optin_mode'], 'optout' ); ?>><?php esc_html_e( 'Opt-out', 'kdna-ecommerce' ); ?></option>
                     </select>
@@ -1926,14 +1926,14 @@ class KDNA_Admin {
             <tr>
                 <th><?php esc_html_e( 'Opt-in Checkbox Locations', 'kdna-ecommerce' ); ?></th>
                 <td>
-                    <label><input type="checkbox" name="kdna_automatewoo_settings[enable_checkout_optin]" value="1" <?php checked( $s['enable_checkout_optin'], 'yes' ); ?>> <?php esc_html_e( 'Show on checkout page', 'kdna-ecommerce' ); ?></label><br>
-                    <label><input type="checkbox" name="kdna_automatewoo_settings[enable_account_signup_optin]" value="1" <?php checked( $s['enable_account_signup_optin'], 'yes' ); ?>> <?php esc_html_e( 'Show on account signup page', 'kdna-ecommerce' ); ?></label>
+                    <label><input type="checkbox" name="kdna_automations_settings[enable_checkout_optin]" value="1" <?php checked( $s['enable_checkout_optin'], 'yes' ); ?>> <?php esc_html_e( 'Show on checkout page', 'kdna-ecommerce' ); ?></label><br>
+                    <label><input type="checkbox" name="kdna_automations_settings[enable_account_signup_optin]" value="1" <?php checked( $s['enable_account_signup_optin'], 'yes' ); ?>> <?php esc_html_e( 'Show on account signup page', 'kdna-ecommerce' ); ?></label>
                 </td>
             </tr>
             <tr>
                 <th><label for="aw_optin_text"><?php esc_html_e( 'Opt-in Checkbox Text', 'kdna-ecommerce' ); ?></label></th>
                 <td>
-                    <textarea name="kdna_automatewoo_settings[optin_checkbox_text]" id="aw_optin_text" rows="2" class="large-text"><?php echo esc_textarea( $s['optin_checkbox_text'] ); ?></textarea>
+                    <textarea name="kdna_automations_settings[optin_checkbox_text]" id="aw_optin_text" rows="2" class="large-text"><?php echo esc_textarea( $s['optin_checkbox_text'] ); ?></textarea>
                 </td>
             </tr>
         </table>
@@ -1942,28 +1942,28 @@ class KDNA_Admin {
         <table class="form-table">
             <tr>
                 <th><?php esc_html_e( 'Enable Session Tracking', 'kdna-ecommerce' ); ?></th>
-                <td><label><input type="checkbox" name="kdna_automatewoo_settings[session_tracking_enabled]" value="1" <?php checked( $s['session_tracking_enabled'], 'yes' ); ?>> <?php esc_html_e( 'Track guest sessions with cookies', 'kdna-ecommerce' ); ?></label></td>
+                <td><label><input type="checkbox" name="kdna_automations_settings[session_tracking_enabled]" value="1" <?php checked( $s['session_tracking_enabled'], 'yes' ); ?>> <?php esc_html_e( 'Track guest sessions with cookies', 'kdna-ecommerce' ); ?></label></td>
             </tr>
             <tr>
                 <th><?php esc_html_e( 'Require Cookie Consent', 'kdna-ecommerce' ); ?></th>
                 <td>
-                    <label><input type="checkbox" name="kdna_automatewoo_settings[session_tracking_requires_cookie_consent]" value="1" <?php checked( $s['session_tracking_requires_cookie_consent'], 'yes' ); ?>> <?php esc_html_e( 'Disable tracking until consent is given', 'kdna-ecommerce' ); ?></label>
+                    <label><input type="checkbox" name="kdna_automations_settings[session_tracking_requires_cookie_consent]" value="1" <?php checked( $s['session_tracking_requires_cookie_consent'], 'yes' ); ?>> <?php esc_html_e( 'Disable tracking until consent is given', 'kdna-ecommerce' ); ?></label>
                 </td>
             </tr>
             <tr>
                 <th><label for="aw_cookie_name"><?php esc_html_e( 'Consent Cookie Name', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="text" name="kdna_automatewoo_settings[session_tracking_consent_cookie_name]" id="aw_cookie_name" value="<?php echo esc_attr( $s['session_tracking_consent_cookie_name'] ); ?>" class="regular-text" /></td>
+                <td><input type="text" name="kdna_automations_settings[session_tracking_consent_cookie_name]" id="aw_cookie_name" value="<?php echo esc_attr( $s['session_tracking_consent_cookie_name'] ); ?>" class="regular-text" /></td>
             </tr>
             <tr>
                 <th><?php esc_html_e( 'Pre-submit Data Capture', 'kdna-ecommerce' ); ?></th>
                 <td>
-                    <label><input type="checkbox" name="kdna_automatewoo_settings[enable_presubmit_data_capture]" value="1" <?php checked( $s['enable_presubmit_data_capture'], 'yes' ); ?>> <?php esc_html_e( 'Capture guest email before form submission', 'kdna-ecommerce' ); ?></label>
+                    <label><input type="checkbox" name="kdna_automations_settings[enable_presubmit_data_capture]" value="1" <?php checked( $s['enable_presubmit_data_capture'], 'yes' ); ?>> <?php esc_html_e( 'Capture guest email before form submission', 'kdna-ecommerce' ); ?></label>
                 </td>
             </tr>
             <tr>
                 <th><label for="aw_capture_scope"><?php esc_html_e( 'Capture Scope', 'kdna-ecommerce' ); ?></label></th>
                 <td>
-                    <select name="kdna_automatewoo_settings[guest_email_capture_scope]" id="aw_capture_scope">
+                    <select name="kdna_automations_settings[guest_email_capture_scope]" id="aw_capture_scope">
                         <option value="checkout" <?php selected( $s['guest_email_capture_scope'], 'checkout' ); ?>><?php esc_html_e( 'Checkout Only', 'kdna-ecommerce' ); ?></option>
                         <option value="all" <?php selected( $s['guest_email_capture_scope'], 'all' ); ?>><?php esc_html_e( 'All Pages', 'kdna-ecommerce' ); ?></option>
                     </select>
@@ -1975,20 +1975,20 @@ class KDNA_Admin {
         <table class="form-table">
             <tr>
                 <th><label for="aw_prefs_page"><?php esc_html_e( 'Preferences Page ID', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="number" name="kdna_automatewoo_settings[communication_preferences_page_id]" id="aw_prefs_page" value="<?php echo esc_attr( $s['communication_preferences_page_id'] ); ?>" class="small-text" />
+                <td><input type="number" name="kdna_automations_settings[communication_preferences_page_id]" id="aw_prefs_page" value="<?php echo esc_attr( $s['communication_preferences_page_id'] ); ?>" class="small-text" />
                 <p class="description"><?php esc_html_e( 'Page containing [kdna_aw_communication_preferences] shortcode.', 'kdna-ecommerce' ); ?></p></td>
             </tr>
             <tr>
                 <th><label for="aw_signup_page"><?php esc_html_e( 'Signup Page ID', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="number" name="kdna_automatewoo_settings[communication_signup_page_id]" id="aw_signup_page" value="<?php echo esc_attr( $s['communication_signup_page_id'] ); ?>" class="small-text" /></td>
+                <td><input type="number" name="kdna_automations_settings[communication_signup_page_id]" id="aw_signup_page" value="<?php echo esc_attr( $s['communication_signup_page_id'] ); ?>" class="small-text" /></td>
             </tr>
             <tr>
                 <th><?php esc_html_e( 'My Account Tab', 'kdna-ecommerce' ); ?></th>
-                <td><label><input type="checkbox" name="kdna_automatewoo_settings[enable_communication_account_tab]" value="1" <?php checked( $s['enable_communication_account_tab'], 'yes' ); ?>> <?php esc_html_e( 'Show Communication tab in My Account', 'kdna-ecommerce' ); ?></label></td>
+                <td><label><input type="checkbox" name="kdna_automations_settings[enable_communication_account_tab]" value="1" <?php checked( $s['enable_communication_account_tab'], 'yes' ); ?>> <?php esc_html_e( 'Show Communication tab in My Account', 'kdna-ecommerce' ); ?></label></td>
             </tr>
             <tr>
                 <th><label for="aw_legal"><?php esc_html_e( 'Legal Text', 'kdna-ecommerce' ); ?></label></th>
-                <td><textarea name="kdna_automatewoo_settings[communication_page_legal_text]" id="aw_legal" rows="3" class="large-text"><?php echo esc_textarea( $s['communication_page_legal_text'] ); ?></textarea></td>
+                <td><textarea name="kdna_automations_settings[communication_page_legal_text]" id="aw_legal" rows="3" class="large-text"><?php echo esc_textarea( $s['communication_page_legal_text'] ); ?></textarea></td>
             </tr>
         </table>
 
@@ -1996,11 +1996,11 @@ class KDNA_Admin {
         <table class="form-table">
             <tr>
                 <th><label for="aw_from_name"><?php esc_html_e( 'From Name', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="text" name="kdna_automatewoo_settings[email_from_name]" id="aw_from_name" value="<?php echo esc_attr( $s['email_from_name'] ); ?>" class="regular-text" placeholder="<?php echo esc_attr( get_option( 'woocommerce_email_from_name' ) ); ?>" /></td>
+                <td><input type="text" name="kdna_automations_settings[email_from_name]" id="aw_from_name" value="<?php echo esc_attr( $s['email_from_name'] ); ?>" class="regular-text" placeholder="<?php echo esc_attr( get_option( 'woocommerce_email_from_name' ) ); ?>" /></td>
             </tr>
             <tr>
                 <th><label for="aw_from_email"><?php esc_html_e( 'From Email', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="email" name="kdna_automatewoo_settings[email_from_address]" id="aw_from_email" value="<?php echo esc_attr( $s['email_from_address'] ); ?>" class="regular-text" placeholder="<?php echo esc_attr( get_option( 'woocommerce_email_from_address' ) ); ?>" /></td>
+                <td><input type="email" name="kdna_automations_settings[email_from_address]" id="aw_from_email" value="<?php echo esc_attr( $s['email_from_address'] ); ?>" class="regular-text" placeholder="<?php echo esc_attr( get_option( 'woocommerce_email_from_address' ) ); ?>" /></td>
             </tr>
         </table>
 
@@ -2008,11 +2008,11 @@ class KDNA_Admin {
         <table class="form-table">
             <tr>
                 <th><label for="aw_conv_window"><?php esc_html_e( 'Conversion Window (days)', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="number" name="kdna_automatewoo_settings[conversion_window]" id="aw_conv_window" value="<?php echo esc_attr( $s['conversion_window'] ); ?>" class="small-text" min="1" /></td>
+                <td><input type="number" name="kdna_automations_settings[conversion_window]" id="aw_conv_window" value="<?php echo esc_attr( $s['conversion_window'] ); ?>" class="small-text" min="1" /></td>
             </tr>
             <tr>
                 <th><?php esc_html_e( 'Clean Expired Coupons', 'kdna-ecommerce' ); ?></th>
-                <td><label><input type="checkbox" name="kdna_automatewoo_settings[clean_expired_coupons]" value="1" <?php checked( $s['clean_expired_coupons'], 'yes' ); ?>> <?php esc_html_e( 'Delete generated coupons 14 days after expiry', 'kdna-ecommerce' ); ?></label></td>
+                <td><label><input type="checkbox" name="kdna_automations_settings[clean_expired_coupons]" value="1" <?php checked( $s['clean_expired_coupons'], 'yes' ); ?>> <?php esc_html_e( 'Delete generated coupons 14 days after expiry', 'kdna-ecommerce' ); ?></label></td>
             </tr>
         </table>
         <?php
@@ -2024,20 +2024,20 @@ class KDNA_Admin {
         <table class="form-table">
             <tr>
                 <th><?php esc_html_e( 'Enable Cart Tracking', 'kdna-ecommerce' ); ?></th>
-                <td><label><input type="checkbox" name="kdna_automatewoo_settings[abandoned_cart_enabled]" value="1" <?php checked( $s['abandoned_cart_enabled'], 'yes' ); ?>> <?php esc_html_e( 'Track customer carts for abandoned cart workflows', 'kdna-ecommerce' ); ?></label></td>
+                <td><label><input type="checkbox" name="kdna_automations_settings[abandoned_cart_enabled]" value="1" <?php checked( $s['abandoned_cart_enabled'], 'yes' ); ?>> <?php esc_html_e( 'Track customer carts for abandoned cart workflows', 'kdna-ecommerce' ); ?></label></td>
             </tr>
             <tr>
                 <th><label for="aw_cart_timeout"><?php esc_html_e( 'Abandoned Cart Timeout (minutes)', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="number" name="kdna_automatewoo_settings[abandoned_cart_timeout]" id="aw_cart_timeout" value="<?php echo esc_attr( $s['abandoned_cart_timeout'] ); ?>" class="small-text" min="5" />
+                <td><input type="number" name="kdna_automations_settings[abandoned_cart_timeout]" id="aw_cart_timeout" value="<?php echo esc_attr( $s['abandoned_cart_timeout'] ); ?>" class="small-text" min="5" />
                 <p class="description"><?php esc_html_e( 'Minutes from last activity to when a cart is considered abandoned. Minimum 5.', 'kdna-ecommerce' ); ?></p></td>
             </tr>
             <tr>
                 <th><?php esc_html_e( 'Include Failed Orders', 'kdna-ecommerce' ); ?></th>
-                <td><label><input type="checkbox" name="kdna_automatewoo_settings[abandoned_cart_includes_pending_orders]" value="1" <?php checked( $s['abandoned_cart_includes_pending_orders'], 'yes' ); ?>> <?php esc_html_e( 'Include failed, cancelled and pending orders as abandoned carts', 'kdna-ecommerce' ); ?></label></td>
+                <td><label><input type="checkbox" name="kdna_automations_settings[abandoned_cart_includes_pending_orders]" value="1" <?php checked( $s['abandoned_cart_includes_pending_orders'], 'yes' ); ?>> <?php esc_html_e( 'Include failed, cancelled and pending orders as abandoned carts', 'kdna-ecommerce' ); ?></label></td>
             </tr>
             <tr>
                 <th><label for="aw_clear_carts"><?php esc_html_e( 'Clear Inactive Carts After (days)', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="number" name="kdna_automatewoo_settings[clear_inactive_carts_after]" id="aw_clear_carts" value="<?php echo esc_attr( $s['clear_inactive_carts_after'] ); ?>" class="small-text" /></td>
+                <td><input type="number" name="kdna_automations_settings[clear_inactive_carts_after]" id="aw_clear_carts" value="<?php echo esc_attr( $s['clear_inactive_carts_after'] ); ?>" class="small-text" /></td>
             </tr>
         </table>
         <?php
@@ -2049,20 +2049,20 @@ class KDNA_Admin {
         <table class="form-table">
             <tr>
                 <th><?php esc_html_e( 'Enable', 'kdna-ecommerce' ); ?></th>
-                <td><label><input type="checkbox" name="kdna_automatewoo_settings[twilio_enabled]" value="1" <?php checked( $s['twilio_enabled'], 'yes' ); ?>> <?php esc_html_e( 'Enable Twilio SMS integration', 'kdna-ecommerce' ); ?></label></td>
+                <td><label><input type="checkbox" name="kdna_automations_settings[twilio_enabled]" value="1" <?php checked( $s['twilio_enabled'], 'yes' ); ?>> <?php esc_html_e( 'Enable Twilio SMS integration', 'kdna-ecommerce' ); ?></label></td>
             </tr>
             <tr>
                 <th><label for="aw_twilio_from"><?php esc_html_e( 'From Number', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="text" name="kdna_automatewoo_settings[twilio_from]" id="aw_twilio_from" value="<?php echo esc_attr( $s['twilio_from'] ); ?>" class="regular-text" />
+                <td><input type="text" name="kdna_automations_settings[twilio_from]" id="aw_twilio_from" value="<?php echo esc_attr( $s['twilio_from'] ); ?>" class="regular-text" />
                 <p class="description"><?php esc_html_e( 'Twilio phone number in E.164 format or alphanumeric sender ID.', 'kdna-ecommerce' ); ?></p></td>
             </tr>
             <tr>
                 <th><label for="aw_twilio_sid"><?php esc_html_e( 'Account SID', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="text" name="kdna_automatewoo_settings[twilio_auth_id]" id="aw_twilio_sid" value="<?php echo esc_attr( $s['twilio_auth_id'] ); ?>" class="regular-text" /></td>
+                <td><input type="text" name="kdna_automations_settings[twilio_auth_id]" id="aw_twilio_sid" value="<?php echo esc_attr( $s['twilio_auth_id'] ); ?>" class="regular-text" /></td>
             </tr>
             <tr>
                 <th><label for="aw_twilio_token"><?php esc_html_e( 'Auth Token', 'kdna-ecommerce' ); ?></label></th>
-                <td><input type="password" name="kdna_automatewoo_settings[twilio_auth_token]" id="aw_twilio_token" value="<?php echo esc_attr( $s['twilio_auth_token'] ); ?>" class="regular-text" /></td>
+                <td><input type="password" name="kdna_automations_settings[twilio_auth_token]" id="aw_twilio_token" value="<?php echo esc_attr( $s['twilio_auth_token'] ); ?>" class="regular-text" /></td>
             </tr>
         </table>
         <?php
@@ -2075,7 +2075,7 @@ class KDNA_Admin {
             <?php foreach ( $fields as $key => $conf ) : ?>
             <tr>
                 <th><label for="aw_<?php echo esc_attr( $key ); ?>"><?php echo esc_html( $conf['label'] ); ?></label></th>
-                <td><input type="<?php echo esc_attr( $conf['type'] ); ?>" name="kdna_automatewoo_settings[<?php echo esc_attr( $key ); ?>]" id="aw_<?php echo esc_attr( $key ); ?>" value="<?php echo esc_attr( $s[ $key ] ?? '' ); ?>" class="regular-text" /></td>
+                <td><input type="<?php echo esc_attr( $conf['type'] ); ?>" name="kdna_automations_settings[<?php echo esc_attr( $key ); ?>]" id="aw_<?php echo esc_attr( $key ); ?>" value="<?php echo esc_attr( $s[ $key ] ?? '' ); ?>" class="regular-text" /></td>
             </tr>
             <?php endforeach; ?>
         </table>
@@ -2083,7 +2083,7 @@ class KDNA_Admin {
     }
 
     // ===================================================================
-    // Follow-up Emails Settings
+    // Emails Settings
     // ===================================================================
 
     public function sanitize_followup_emails_settings( $input ) {

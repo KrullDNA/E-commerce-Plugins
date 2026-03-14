@@ -61,13 +61,13 @@ class KDNA_Ecommerce_Suite {
                 'shipment_tracking'  => 'no',
                 'tax_invoice'        => 'no',
                 'smart_coupons'      => 'no',
-                'automatewoo'        => 'no',
+                'automations'        => 'no',
                 'followup_emails'    => 'no',
             ]);
         }
         // Install database tables for modules that need them.
-        require_once KDNA_ECOMMERCE_PATH . 'modules/automatewoo/class-kdna-automatewoo.php';
-        KDNA_AutomateWoo::install();
+        require_once KDNA_ECOMMERCE_PATH . 'modules/automations/class-kdna-automations.php';
+        KDNA_Automations::install();
 
         require_once KDNA_ECOMMERCE_PATH . 'modules/followup-emails/class-kdna-followup-emails.php';
         KDNA_Followup_Emails::install();
@@ -141,9 +141,9 @@ class KDNA_Ecommerce_Suite {
             $this->modules['smart_coupons'] = new KDNA_Smart_Coupons();
         }
 
-        if ( $this->is_module_active( 'automatewoo' ) ) {
-            require_once KDNA_ECOMMERCE_PATH . 'modules/automatewoo/class-kdna-automatewoo.php';
-            $this->modules['automatewoo'] = new KDNA_AutomateWoo();
+        if ( $this->is_module_active( 'automations' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/automations/class-kdna-automations.php';
+            $this->modules['automations'] = new KDNA_Automations();
         }
 
         if ( $this->is_module_active( 'followup_emails' ) ) {
