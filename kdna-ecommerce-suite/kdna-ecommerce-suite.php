@@ -2,7 +2,7 @@
 /**
  * Plugin Name: E-commerce Suite
  * Plugin URI: https://kdnastaging2.com
- * Description: All-in-one WooCommerce enhancement suite: Points & Rewards, Product Reviews, Related Products, Sequential Order Numbers, Australia Post Shipping, and Shipment Tracking.
+ * Description: All-in-one WooCommerce enhancement suite: Points & Rewards, Product Reviews, Related Products, Sequential Order Numbers, Australia Post Shipping, Shipment Tracking, Smart Coupons, AutomateWoo Workflows, Follow-up Emails, and Email Template Builder.
  * Version: 1.0.0
  * Author: Krull D+A
  * Author URI: https://kdnastaging2.com
@@ -61,8 +61,17 @@ class KDNA_Ecommerce_Suite {
                 'shipment_tracking'  => 'no',
                 'tax_invoice'        => 'no',
                 'smart_coupons'      => 'no',
+                'automatewoo'        => 'no',
+                'followup_emails'    => 'no',
             ]);
         }
+        // Install database tables for modules that need them.
+        require_once KDNA_ECOMMERCE_PATH . 'modules/automatewoo/class-kdna-automatewoo.php';
+        KDNA_AutomateWoo::install();
+
+        require_once KDNA_ECOMMERCE_PATH . 'modules/followup-emails/class-kdna-followup-emails.php';
+        KDNA_Followup_Emails::install();
+
         flush_rewrite_rules();
     }
 
@@ -131,6 +140,20 @@ class KDNA_Ecommerce_Suite {
             require_once KDNA_ECOMMERCE_PATH . 'modules/smart-coupons/class-kdna-smart-coupons.php';
             $this->modules['smart_coupons'] = new KDNA_Smart_Coupons();
         }
+
+        if ( $this->is_module_active( 'automatewoo' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/automatewoo/class-kdna-automatewoo.php';
+            $this->modules['automatewoo'] = new KDNA_AutomateWoo();
+        }
+
+        if ( $this->is_module_active( 'followup_emails' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/followup-emails/class-kdna-followup-emails.php';
+            $this->modules['followup_emails'] = new KDNA_Followup_Emails();
+        }
+
+        // Load Email Template Builder (always available, shared component).
+        require_once KDNA_ECOMMERCE_PATH . 'includes/email-builder/class-kdna-email-builder.php';
+        new KDNA_Email_Builder();
 
         // Load Elementor widgets if Elementor is active
         add_action( 'elementor/widgets/register', [ $this, 'register_elementor_widgets' ] );

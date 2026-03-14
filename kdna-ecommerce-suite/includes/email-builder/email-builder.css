@@ -1,0 +1,427 @@
+/* KDNA Email Template Builder - Admin Styles */
+
+#kdna-email-builder {
+    display: flex;
+    gap: 0;
+    min-height: calc(100vh - 100px);
+    margin: 15px 0;
+    background: #f0f0f1;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.kdna-etb-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 60px;
+    font-size: 14px;
+    color: #666;
+}
+
+/* Sidebar - Block Palette & Settings */
+.kdna-etb-sidebar {
+    width: 300px;
+    min-width: 300px;
+    background: #fff;
+    border-right: 1px solid #c3c4c7;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+}
+
+.kdna-etb-sidebar-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid #e0e0e0;
+    background: #f6f7f7;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kdna-etb-sidebar-header h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.kdna-etb-tabs {
+    display: flex;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.kdna-etb-tab {
+    flex: 1;
+    padding: 10px 12px;
+    text-align: center;
+    cursor: pointer;
+    border: none;
+    background: #f6f7f7;
+    font-size: 12px;
+    font-weight: 600;
+    color: #50575e;
+    transition: all 0.2s;
+}
+
+.kdna-etb-tab:hover {
+    background: #e8e8e8;
+}
+
+.kdna-etb-tab.active {
+    background: #fff;
+    color: #0073aa;
+    border-bottom: 2px solid #0073aa;
+}
+
+.kdna-etb-panel {
+    display: none;
+    padding: 12px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.kdna-etb-panel.active {
+    display: block;
+}
+
+/* Block Palette */
+.kdna-etb-block-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.kdna-etb-block-item {
+    padding: 12px 8px;
+    text-align: center;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    cursor: grab;
+    background: #fff;
+    transition: all 0.2s;
+    font-size: 11px;
+    color: #50575e;
+}
+
+.kdna-etb-block-item:hover {
+    border-color: #0073aa;
+    background: #f0f6fc;
+    color: #0073aa;
+}
+
+.kdna-etb-block-item .dashicons {
+    display: block;
+    margin: 0 auto 6px;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+}
+
+/* Canvas - Email Preview */
+.kdna-etb-canvas {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.kdna-etb-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 660px;
+    box-sizing: border-box;
+}
+
+.kdna-etb-toolbar input[type="text"] {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.kdna-etb-toolbar .button {
+    white-space: nowrap;
+}
+
+.kdna-etb-email-frame {
+    width: 100%;
+    max-width: 660px;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    min-height: 400px;
+    position: relative;
+}
+
+.kdna-etb-email-body {
+    padding: 30px;
+    min-height: 300px;
+}
+
+.kdna-etb-drop-zone {
+    min-height: 100px;
+    border: 2px dashed #c3c4c7;
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    font-size: 13px;
+    transition: all 0.2s;
+}
+
+.kdna-etb-drop-zone.drag-over {
+    border-color: #0073aa;
+    background: #f0f6fc;
+    color: #0073aa;
+}
+
+.kdna-etb-drop-zone.has-blocks {
+    border: none;
+    min-height: auto;
+}
+
+/* Row in Canvas */
+.kdna-etb-row {
+    position: relative;
+    border: 1px solid transparent;
+    margin: 2px 0;
+    transition: border-color 0.2s;
+    cursor: pointer;
+}
+
+.kdna-etb-row:hover {
+    border-color: #0073aa;
+    border-radius: 2px;
+}
+
+.kdna-etb-row.selected {
+    border-color: #0073aa;
+    box-shadow: 0 0 0 1px #0073aa;
+    border-radius: 2px;
+}
+
+.kdna-etb-row-actions {
+    position: absolute;
+    top: -1px;
+    right: -1px;
+    display: none;
+    gap: 2px;
+    z-index: 10;
+}
+
+.kdna-etb-row:hover .kdna-etb-row-actions,
+.kdna-etb-row.selected .kdna-etb-row-actions {
+    display: flex;
+}
+
+.kdna-etb-row-action {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0073aa;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 0;
+}
+
+.kdna-etb-row-action:hover {
+    background: #005a87;
+}
+
+.kdna-etb-row-action.delete {
+    background: #d63638;
+}
+
+.kdna-etb-row-action.delete:hover {
+    background: #b32d2e;
+}
+
+/* Block Settings Panel */
+.kdna-etb-settings-group {
+    margin-bottom: 16px;
+}
+
+.kdna-etb-settings-group h4 {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #999;
+    margin: 0 0 8px;
+    letter-spacing: 0.5px;
+}
+
+.kdna-etb-field {
+    margin-bottom: 10px;
+}
+
+.kdna-etb-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #50575e;
+}
+
+.kdna-etb-field input[type="text"],
+.kdna-etb-field input[type="number"],
+.kdna-etb-field input[type="url"],
+.kdna-etb-field select,
+.kdna-etb-field textarea {
+    width: 100%;
+    font-size: 13px;
+}
+
+.kdna-etb-field textarea {
+    min-height: 80px;
+    resize: vertical;
+}
+
+.kdna-etb-field .description {
+    font-size: 11px;
+    color: #999;
+    margin-top: 2px;
+}
+
+/* Color picker field */
+.kdna-etb-field .wp-picker-container {
+    width: 100%;
+}
+
+.kdna-etb-field .wp-picker-container .wp-color-result {
+    width: 100%;
+}
+
+/* Toggle field */
+.kdna-etb-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.kdna-etb-toggle label {
+    margin: 0;
+}
+
+/* Alignment buttons */
+.kdna-etb-align-group {
+    display: flex;
+    gap: 4px;
+}
+
+.kdna-etb-align-btn {
+    padding: 4px 8px;
+    border: 1px solid #c3c4c7;
+    background: #fff;
+    cursor: pointer;
+    border-radius: 2px;
+    font-size: 16px;
+}
+
+.kdna-etb-align-btn.active {
+    background: #0073aa;
+    color: #fff;
+    border-color: #0073aa;
+}
+
+/* Preview Mode */
+.kdna-etb-preview-frame {
+    width: 100%;
+    max-width: 660px;
+    min-height: 500px;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    background: #fff;
+}
+
+/* Mobile preview */
+.kdna-etb-canvas.mobile-preview .kdna-etb-email-frame,
+.kdna-etb-canvas.mobile-preview .kdna-etb-preview-frame {
+    max-width: 375px;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .kdna-etb-sidebar {
+        width: 250px;
+        min-width: 250px;
+    }
+}
+
+/* Add row button */
+.kdna-etb-add-row {
+    margin: 12px auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 8px 16px;
+    border: 2px dashed #c3c4c7;
+    border-radius: 4px;
+    background: transparent;
+    cursor: pointer;
+    color: #666;
+    font-size: 13px;
+    transition: all 0.2s;
+    width: 100%;
+}
+
+.kdna-etb-add-row:hover {
+    border-color: #0073aa;
+    color: #0073aa;
+    background: #f0f6fc;
+}
+
+/* Sortable helpers */
+.ui-sortable-helper {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    border-radius: 4px;
+}
+
+.ui-sortable-placeholder {
+    border: 2px dashed #0073aa;
+    background: #f0f6fc;
+    border-radius: 4px;
+    visibility: visible !important;
+    height: 60px;
+}
+
+/* Template list page actions */
+.kdna-etb-duplicate,
+.kdna-etb-delete {
+    cursor: pointer;
+}
+
+/* Preview toggle buttons */
+.kdna-etb-device-toggle {
+    display: flex;
+    gap: 4px;
+}
+
+.kdna-etb-device-btn {
+    padding: 4px 8px;
+    border: 1px solid #c3c4c7;
+    background: #fff;
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+.kdna-etb-device-btn.active {
+    background: #0073aa;
+    color: #fff;
+    border-color: #0073aa;
+}

@@ -1,0 +1,604 @@
+/* KDNA Follow-up Emails - Admin Styles */
+
+/* ============================================================
+   Email List Table
+   ============================================================ */
+.post-type-kdna_fue .column-fue_type {
+    width: 120px;
+}
+.post-type-kdna_fue .column-fue_status {
+    width: 80px;
+}
+.post-type-kdna_fue .column-fue_sent {
+    width: 70px;
+}
+.post-type-kdna_fue .column-fue_open_rate {
+    width: 90px;
+}
+
+.kdna-fue-type-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+}
+.kdna-fue-type-badge.purchase {
+    background: #d4edda;
+    color: #155724;
+}
+.kdna-fue-type-badge.re-engagement {
+    background: #fff3cd;
+    color: #856404;
+}
+.kdna-fue-type-badge.signup {
+    background: #cce5ff;
+    color: #004085;
+}
+.kdna-fue-type-badge.manual {
+    background: #e2e3e5;
+    color: #383d41;
+}
+.kdna-fue-type-badge.subscription {
+    background: #d6d8f7;
+    color: #383d8a;
+}
+.kdna-fue-type-badge.booking {
+    background: #f5d6e0;
+    color: #7a1b3a;
+}
+
+.kdna-fue-status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+}
+.kdna-fue-status-badge.active {
+    background: #d4edda;
+    color: #155724;
+}
+.kdna-fue-status-badge.disabled {
+    background: #f8d7da;
+    color: #721c24;
+}
+.kdna-fue-status-badge.draft {
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+/* ============================================================
+   Email Editor
+   ============================================================ */
+#kdna-fue-email-editor {
+    margin-top: 10px;
+}
+
+.kdna-fue-editor-section {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.kdna-fue-editor-section-header {
+    padding: 12px 16px;
+    background: #f6f7f7;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.kdna-fue-editor-section-header h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.kdna-fue-editor-section-body {
+    padding: 16px;
+}
+
+/* Email type selection */
+.kdna-fue-type-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.kdna-fue-type-card {
+    padding: 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.kdna-fue-type-card:hover {
+    border-color: #0073aa;
+    background: #f0f6fc;
+}
+
+.kdna-fue-type-card.selected {
+    border-color: #0073aa;
+    background: #f0f6fc;
+    box-shadow: 0 0 0 1px #0073aa;
+}
+
+.kdna-fue-type-card .dashicons {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+    color: #0073aa;
+    margin-bottom: 8px;
+}
+
+.kdna-fue-type-card h4 {
+    margin: 0 0 4px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.kdna-fue-type-card p {
+    margin: 0;
+    font-size: 11px;
+    color: #999;
+}
+
+/* Trigger configuration */
+.kdna-fue-trigger-config {
+    margin-top: 12px;
+    padding: 12px;
+    background: #f6f7f7;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.kdna-fue-trigger-config .form-field {
+    margin-bottom: 12px;
+}
+
+.kdna-fue-trigger-config .form-field:last-child {
+    margin-bottom: 0;
+}
+
+.kdna-fue-trigger-config label {
+    display: block;
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 4px;
+    color: #50575e;
+}
+
+.kdna-fue-trigger-config select,
+.kdna-fue-trigger-config input[type="text"],
+.kdna-fue-trigger-config input[type="number"] {
+    width: 100%;
+    max-width: 400px;
+}
+
+/* Delay row */
+.kdna-fue-delay-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kdna-fue-delay-row input[type="number"] {
+    width: 80px !important;
+    min-width: 80px;
+}
+
+.kdna-fue-delay-row select {
+    width: auto !important;
+    min-width: 120px;
+}
+
+/* Merge tags inserter */
+.kdna-fue-merge-tags-btn {
+    position: relative;
+    display: inline-block;
+}
+
+.kdna-fue-merge-tags-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    min-width: 300px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.kdna-fue-merge-tags-dropdown.open {
+    display: block;
+}
+
+.kdna-fue-merge-tags-group h5 {
+    margin: 0;
+    padding: 8px 12px;
+    background: #f6f7f7;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #999;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky;
+    top: 0;
+}
+
+.kdna-fue-merge-tag-item {
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.kdna-fue-merge-tag-item:hover {
+    background: #f0f6fc;
+    color: #0073aa;
+}
+
+.kdna-fue-merge-tag-item code {
+    font-size: 11px;
+    color: #999;
+}
+
+/* Template selector */
+.kdna-fue-template-selector {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.kdna-fue-template-selector select {
+    flex: 1;
+    max-width: 400px;
+}
+
+/* Coupon generation section */
+.kdna-fue-coupon-config {
+    background: #f6f7f7;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    margin-top: 12px;
+}
+
+.kdna-fue-coupon-config h4 {
+    margin: 0 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #50575e;
+}
+
+.kdna-fue-coupon-fields {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+.kdna-fue-coupon-fields .form-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    margin-bottom: 4px;
+    color: #50575e;
+}
+
+.kdna-fue-coupon-fields input,
+.kdna-fue-coupon-fields select {
+    width: 100%;
+}
+
+/* Exclusions */
+.kdna-fue-exclusion-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.kdna-fue-exclusion-list li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 6px 10px;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.kdna-fue-exclusion-list li:hover {
+    background: #f6f7f7;
+}
+
+.kdna-fue-exclusion-list .remove-exclusion {
+    color: #d63638;
+    cursor: pointer;
+    border: none;
+    background: none;
+    padding: 2px;
+}
+
+/* Test email */
+.kdna-fue-test-email {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding: 12px;
+    background: #f6f7f7;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+}
+
+.kdna-fue-test-email input[type="email"] {
+    flex: 1;
+    max-width: 300px;
+}
+
+/* ============================================================
+   Queue Page
+   ============================================================ */
+.kdna-fue-queue-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.kdna-fue-queue-status.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.kdna-fue-queue-status.sending {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.kdna-fue-queue-status.sent {
+    background: #d4edda;
+    color: #155724;
+}
+
+.kdna-fue-queue-status.failed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+.kdna-fue-queue-status.cancelled {
+    background: #e2e3e5;
+    color: #383d41;
+}
+
+/* ============================================================
+   Reports Page
+   ============================================================ */
+.kdna-fue-report-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+}
+
+.kdna-fue-report-date-range {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.kdna-fue-report-date-range input[type="text"] {
+    width: 120px;
+}
+
+.kdna-fue-report-stats {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.kdna-fue-stat-card {
+    text-align: center;
+    padding: 20px 8px;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+}
+
+.kdna-fue-stat-card .value {
+    font-size: 28px;
+    font-weight: 700;
+    color: #1d2327;
+    line-height: 1.2;
+}
+
+.kdna-fue-stat-card .value.positive {
+    color: #00a32a;
+}
+
+.kdna-fue-stat-card .value.negative {
+    color: #d63638;
+}
+
+.kdna-fue-stat-card .label {
+    font-size: 11px;
+    color: #999;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.kdna-fue-stat-card .change {
+    font-size: 11px;
+    margin-top: 4px;
+}
+
+.kdna-fue-stat-card .change.up {
+    color: #00a32a;
+}
+
+.kdna-fue-stat-card .change.down {
+    color: #d63638;
+}
+
+/* Per-email report table */
+.kdna-fue-email-report-table th,
+.kdna-fue-email-report-table td {
+    text-align: center;
+}
+
+.kdna-fue-email-report-table th:first-child,
+.kdna-fue-email-report-table td:first-child {
+    text-align: left;
+}
+
+.kdna-fue-bar {
+    display: inline-block;
+    height: 8px;
+    border-radius: 4px;
+    background: #0073aa;
+    min-width: 2px;
+}
+
+/* ============================================================
+   Subscribers Page
+   ============================================================ */
+.kdna-fue-subscriber-actions {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.kdna-fue-import-form {
+    display: none;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    padding: 16px;
+    margin-bottom: 16px;
+}
+
+.kdna-fue-import-form.open {
+    display: block;
+}
+
+.kdna-fue-import-form .form-field {
+    margin-bottom: 12px;
+}
+
+.kdna-fue-import-form label {
+    display: block;
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 4px;
+}
+
+/* ============================================================
+   Dashboard Widget
+   ============================================================ */
+.kdna-fue-dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.kdna-fue-dashboard-stat {
+    text-align: center;
+    padding: 12px 8px;
+    background: #f6f7f7;
+    border-radius: 4px;
+}
+
+.kdna-fue-dashboard-stat .value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #1d2327;
+}
+
+.kdna-fue-dashboard-stat .label {
+    font-size: 11px;
+    color: #999;
+    margin-top: 2px;
+}
+
+.kdna-fue-dashboard-recent {
+    margin-top: 12px;
+}
+
+.kdna-fue-dashboard-recent h4 {
+    margin: 0 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #50575e;
+}
+
+.kdna-fue-dashboard-recent ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.kdna-fue-dashboard-recent li {
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f1;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+}
+
+.kdna-fue-dashboard-recent li:last-child {
+    border-bottom: none;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 1200px) {
+    .kdna-fue-report-stats {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (max-width: 782px) {
+    .kdna-fue-type-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .kdna-fue-delay-row {
+        flex-wrap: wrap;
+    }
+
+    .kdna-fue-coupon-fields {
+        grid-template-columns: 1fr;
+    }
+
+    .kdna-fue-report-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .kdna-fue-report-header {
+        flex-direction: column;
+        gap: 10px;
+        align-items: flex-start;
+    }
+
+    .kdna-fue-dashboard-stats {
+        grid-template-columns: 1fr;
+    }
+}
