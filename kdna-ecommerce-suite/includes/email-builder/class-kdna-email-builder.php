@@ -36,6 +36,8 @@ class KDNA_Email_Builder {
         'footer'      => [ 'label' => 'Footer',         'icon' => 'dashicons-editor-insertmore' ],
         'menu'        => [ 'label' => 'Menu/Nav',       'icon' => 'dashicons-menu' ],
         'order_items' => [ 'label' => 'Order Items',    'icon' => 'dashicons-list-view' ],
+        'blank_row'   => [ 'label' => 'Blank Row',      'icon' => 'dashicons-editor-contract' ],
+        'content'     => [ 'label' => 'Content',        'icon' => 'dashicons-email-alt' ],
     ];
 
     private static $instance = null;
@@ -256,6 +258,14 @@ class KDNA_Email_Builder {
                 'image_width'   => '64px',
                 'padding'       => '10px 20px',
             ],
+            'blank_row' => [
+                'height'   => '40px',
+                'bg_color' => '#f7f7f7',
+                'padding'  => '0px',
+            ],
+            'content' => [
+                'padding' => '10px 20px',
+            ],
         ];
 
         return $defaults[ $type ] ?? [];
@@ -468,6 +478,12 @@ class KDNA_Email_Builder {
                     ( ! empty( $p['show_quantity'] ) ? '<th style="padding:8px;text-align:center;border-bottom:1px solid #e0e0e0;">Qty</th>' : '' ) .
                     ( ! empty( $p['show_price'] ) ? '<th style="padding:8px;text-align:right;border-bottom:1px solid #e0e0e0;">Price</th>' : '' ) .
                     '</tr><tr><td colspan="3" style="padding:12px;text-align:center;color:#999;font-size:13px;">[Order items rendered at send time]</td></tr></table></div>';
+
+            case 'blank_row':
+                return '<div style="height:' . esc_attr( $p['height'] ?? '40px' ) . ';background:' . esc_attr( $p['bg_color'] ?? '#f7f7f7' ) . ';padding:' . esc_attr( $p['padding'] ?? '0px' ) . ';"></div>';
+
+            case 'content':
+                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">{email_content}</div>';
 
             default:
                 return '';

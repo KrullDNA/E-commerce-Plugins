@@ -211,6 +211,27 @@
     border-radius: 2px;
 }
 
+/* Block in Canvas — always full width */
+.kdna-etb-block {
+    display: block;
+    width: 100%;
+    min-height: 20px;
+    cursor: pointer;
+    position: relative;
+    box-sizing: border-box;
+    transition: outline-color 0.15s;
+    outline: 2px solid transparent;
+    outline-offset: -2px;
+}
+
+.kdna-etb-block:hover {
+    outline-color: rgba(0, 115, 170, 0.35);
+}
+
+.kdna-etb-block.selected {
+    outline-color: #0073aa;
+}
+
 .kdna-etb-row-actions {
     position: absolute;
     top: -1px;
