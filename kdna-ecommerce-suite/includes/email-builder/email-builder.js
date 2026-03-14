@@ -49,7 +49,7 @@
                 text_color: '#333333',
                 link_color: '#0073aa',
                 heading_color: '#1a1a1a',
-                padding: '20px',
+                padding: '0px',
                 border_radius: '0px',
                 preheader: ''
             };
