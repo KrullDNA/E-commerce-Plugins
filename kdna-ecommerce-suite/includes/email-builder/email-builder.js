@@ -134,14 +134,22 @@
         },
 
         renderRow: function (index, row) {
-            var html = '<div class="kdna-etb-row" data-index="' + index + '">';
+            var rowStyle = '';
+            var blocks = row.blocks || [];
+
+            // Apply row-level background color if the single block is a blank_row
+            if (blocks.length === 1 && blocks[0].type === 'blank_row') {
+                var brBg = blocks[0].props.bg_color || '#f7f7f7';
+                rowStyle = ' style="background:' + brBg + ';"';
+            }
+
+            var html = '<div class="kdna-etb-row" data-index="' + index + '"' + rowStyle + '>';
             html += '<div class="kdna-etb-row-actions">';
             html += '<button class="kdna-etb-row-action move" title="Move"><span class="dashicons dashicons-move"></span></button>';
             html += '<button class="kdna-etb-row-action duplicate" title="Duplicate"><span class="dashicons dashicons-admin-page"></span></button>';
             html += '<button class="kdna-etb-row-action delete" title="Delete"><span class="dashicons dashicons-trash"></span></button>';
             html += '</div>';
 
-            var blocks = row.blocks || [];
             for (var j = 0; j < blocks.length; j++) {
                 html += this.renderBlockPreview(blocks[j], index, j);
             }
@@ -157,11 +165,12 @@
         renderBlockPreview: function (block, rowIndex, blockIndex) {
             var type = block.type || 'text';
             var p = block.props || {};
+            var pad = p.padding || '10px 20px';
             var html = '<div class="kdna-etb-block" data-row="' + rowIndex + '" data-block="' + blockIndex + '" data-type="' + type + '">';
 
             switch (type) {
                 case 'text':
-                    html += '<div style="padding:' + (p.padding || '10px 20px') + ';text-align:' + (p.text_align || 'left') + ';">' + (p.content || '<p>Text block</p>') + '</div>';
+                    html += '<div style="padding:' + pad + ';text-align:' + (p.text_align || 'left') + ';">' + (p.content || '<p>Text block</p>') + '</div>';
                     break;
                 case 'heading':
                     var tag = p.tag || 'h2';
@@ -169,7 +178,7 @@
                     break;
                 case 'image':
                     if (p.src) {
-                        html += '<div style="padding:' + (p.padding || '10px 20px') + ';text-align:' + (p.text_align || 'center') + ';"><img src="' + this.escAttr(p.src) + '" style="width:' + (p.width || '100%') + ';max-width:100%;" /></div>';
+                        html += '<div style="padding:' + pad + ';text-align:' + (p.text_align || 'center') + ';"><img src="' + this.escAttr(p.src) + '" style="width:' + (p.width || '100%') + ';max-width:100%;" /></div>';
                     } else {
                         html += '<div style="padding:20px;text-align:center;background:#f0f0f1;border:1px dashed #c3c4c7;border-radius:4px;margin:10px 20px;"><span class="dashicons dashicons-format-image" style="font-size:32px;color:#ccc;"></span><br><small style="color:#999;">Click to add image</small></div>';
                     }
@@ -181,7 +190,7 @@
                     html += '<div style="padding:' + (p.padding || '10px 20px') + ';"><hr style="border:none;border-top:' + (p.thickness || '1px') + ' ' + (p.style || 'solid') + ' ' + (p.color || '#e0e0e0') + ';margin:0;" /></div>';
                     break;
                 case 'spacer':
-                    html += '<div style="height:' + (p.height || '20px') + ';background:repeating-linear-gradient(45deg,transparent,transparent 5px,#f8f8f8 5px,#f8f8f8 10px);"></div>';
+                    html += '<div class="kdna-etb-spacer-inner" style="height:' + (p.height || '20px') + ';min-height:10px;background:repeating-linear-gradient(45deg,transparent,transparent 5px,#f8f8f8 5px,#f8f8f8 10px);"></div>';
                     break;
                 case 'social':
                     html += '<div style="padding:' + (p.padding || '10px 20px') + ';text-align:' + (p.text_align || 'center') + ';">';
@@ -225,7 +234,7 @@
                     html += '</div>';
                     break;
                 case 'video':
-                    html += '<div style="padding:' + (p.padding || '10px 20px') + ';text-align:center;background:#000;color:#fff;border-radius:4px;padding:30px;font-size:24px;">&#9654;</div>';
+                    html += '<div style="padding:' + (p.padding || '10px 20px') + ';text-align:center;"><div style="background:#000;color:#fff;border-radius:4px;padding:30px;font-size:24px;">&#9654;</div></div>';
                     break;
                 case 'columns':
                     html += '<div style="padding:' + (p.padding || '10px 20px') + ';display:flex;gap:' + (p.gap || '10px') + ';">';
@@ -243,6 +252,17 @@
                         html += '</div>';
                     }
                     html += '</div>';
+                    break;
+                case 'blank_row':
+                    html += '<div class="kdna-etb-blankrow-inner" style="height:' + (p.height || '40px') + ';min-height:20px;background:' + (p.bg_color || '#f7f7f7') + ';padding:' + (p.padding || '0px') + ';"></div>';
+                    break;
+                case 'content':
+                    html += '<div style="padding:' + (p.padding || '10px 20px') + ';border:1px dashed #c3c4c7;border-radius:4px;background:#f0f8ff;">';
+                    html += '<div style="text-align:center;padding:15px 10px;">';
+                    html += '<span class="dashicons dashicons-email-alt" style="font-size:28px;color:#0073aa;"></span>';
+                    html += '<p style="margin:8px 0 4px;font-weight:600;color:#333;">Email Content</p>';
+                    html += '<small style="color:#666;">Personalised email body content<br>(Hi {customer_first_name}, ...)</small>';
+                    html += '</div></div>';
                     break;
                 default:
                     html += '<div style="padding:10px 20px;color:#999;">Unknown block: ' + type + '</div>';
@@ -328,6 +348,7 @@
                     html += this.colorField('text_color', 'Text Color', p.text_color || '#ffffff');
                     html += this.field('text', 'border_radius', 'Border Radius', p.border_radius || '4px');
                     html += this.field('text', 'padding', 'Button Padding', p.padding || '12px 24px');
+                    html += this.field('text', 'container_padding', 'Container Padding', p.container_padding || '10px 20px');
                     html += this.field('text', 'font_size', 'Font Size', p.font_size || '16px');
                     html += this.alignField('text_align', p.text_align || 'center');
                     break;
@@ -386,6 +407,25 @@
                     html += this.field('select', 'layout', 'Layout', p.layout || '50-50', { '50-50': '50/50', '33-67': '33/67', '67-33': '67/33', '25-75': '25/75', '75-25': '75/25', '33-33-33': '33/33/33', '25-50-25': '25/50/25', '25-25-25-25': '25x4' });
                     html += this.field('text', 'gap', 'Gap', p.gap || '10px');
                     html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
+                    break;
+                case 'product':
+                    html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
+                    break;
+                case 'order_items':
+                    html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
+                    break;
+                case 'video':
+                    html += this.field('url', 'url', 'Video URL', p.url || '');
+                    html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
+                    break;
+                case 'blank_row':
+                    html += this.field('text', 'height', 'Height', p.height || '40px');
+                    html += this.colorField('bg_color', 'Background Color', p.bg_color || '#f7f7f7');
+                    html += this.field('text', 'padding', 'Padding', p.padding || '0px');
+                    break;
+                case 'content':
+                    html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
+                    html += '<p class="description" style="margin-top:8px;">This block inserts the personalised email body content that is written when creating a follow-up email (e.g. Hi {customer_first_name}, ...).</p>';
                     break;
                 default:
                     html += '<p>No settings available for this block type.</p>';
@@ -463,11 +503,16 @@
                     var defaults = self.blocks[type] ? self.blocks[type].defaults : {};
                     var rowIndex = $(this).data('index');
                     if (typeof rowIndex !== 'undefined') {
-                        self.structure.rows[rowIndex].blocks.push({ type: type, props: $.extend(true, {}, defaults) });
+                        // Insert a new row after the dropped-on row (blocks always stack vertically).
+                        self.structure.rows.splice(rowIndex + 1, 0, { blocks: [{ type: type, props: $.extend(true, {}, defaults) }] });
                     } else {
                         self.structure.rows.push({ blocks: [{ type: type, props: $.extend(true, {}, defaults) }] });
                     }
                     self.refreshCanvas();
+
+                    // Auto-select the newly added block.
+                    var newRowIdx = (typeof rowIndex !== 'undefined') ? rowIndex + 1 : self.structure.rows.length - 1;
+                    self.selectBlock(newRowIdx, 0);
                 }
             });
 
@@ -482,6 +527,8 @@
                 e.stopPropagation();
                 var idx = $(this).closest('.kdna-etb-row').data('index');
                 self.structure.rows.splice(idx, 1);
+                self.selectedRow = null;
+                self.selectedBlock = null;
                 self.refreshCanvas();
             });
 
@@ -493,24 +540,22 @@
                 self.refreshCanvas();
             });
 
-            // Select block
+            // Select block — delegate to both .kdna-etb-block and row click
             this.el.on('click', '.kdna-etb-block', function (e) {
                 e.stopPropagation();
                 var rowIdx = $(this).data('row');
                 var blockIdx = $(this).data('block');
-                self.selectedRow = rowIdx;
-                self.selectedBlock = blockIdx;
-                self.el.find('.kdna-etb-row').removeClass('selected');
-                $(this).closest('.kdna-etb-row').addClass('selected');
+                self.selectBlock(rowIdx, blockIdx);
+            });
 
-                var block = self.structure.rows[rowIdx].blocks[blockIdx];
-                var settingsHtml = self.renderBlockSettings(block);
-                self.el.find('.kdna-etb-panel[data-panel="block-settings"]').html(settingsHtml);
-                self.el.find('.kdna-etb-tab').removeClass('active');
-                self.el.find('.kdna-etb-tab[data-panel="block-settings"]').addClass('active');
-                self.el.find('.kdna-etb-panel').removeClass('active');
-                self.el.find('.kdna-etb-panel[data-panel="block-settings"]').addClass('active');
-                self.initColorPickers();
+            // Also select single-block rows when clicking the row itself
+            this.el.on('click', '.kdna-etb-row', function (e) {
+                var $row = $(this);
+                var rowIdx = $row.data('index');
+                var blocks = self.structure.rows[rowIdx] ? self.structure.rows[rowIdx].blocks : [];
+                if (blocks.length === 1) {
+                    self.selectBlock(rowIdx, 0);
+                }
             });
 
             // Block/design setting changes
@@ -648,6 +693,30 @@
             });
         },
 
+        /**
+         * Programmatically select a block and open its settings panel.
+         */
+        selectBlock: function (rowIdx, blockIdx) {
+            if (!this.structure.rows[rowIdx] || !this.structure.rows[rowIdx].blocks[blockIdx]) return;
+
+            this.selectedRow = rowIdx;
+            this.selectedBlock = blockIdx;
+            this.el.find('.kdna-etb-row').removeClass('selected');
+            this.el.find('.kdna-etb-block').removeClass('selected');
+            var $row = this.el.find('.kdna-etb-row[data-index="' + rowIdx + '"]');
+            $row.addClass('selected');
+            $row.find('.kdna-etb-block[data-block="' + blockIdx + '"]').addClass('selected');
+
+            var block = this.structure.rows[rowIdx].blocks[blockIdx];
+            var settingsHtml = this.renderBlockSettings(block);
+            this.el.find('.kdna-etb-panel[data-panel="block-settings"]').html(settingsHtml);
+            this.el.find('.kdna-etb-tab').removeClass('active');
+            this.el.find('.kdna-etb-tab[data-panel="block-settings"]').addClass('active');
+            this.el.find('.kdna-etb-panel').removeClass('active');
+            this.el.find('.kdna-etb-panel[data-panel="block-settings"]').addClass('active');
+            this.initColorPickers();
+        },
+
         refreshCanvas: function () {
             var frame = this.el.find('.kdna-etb-email-frame');
             var body = frame.find('.kdna-etb-email-body');
@@ -658,6 +727,13 @@
             });
             frame.css('max-width', (parseInt(this.structure.settings.width) + 60) + 'px');
             this.initSortable();
+
+            // Re-highlight currently selected block if still valid.
+            if (this.selectedRow !== null && this.structure.rows[this.selectedRow] && this.structure.rows[this.selectedRow].blocks[this.selectedBlock]) {
+                var $row = this.el.find('.kdna-etb-row[data-index="' + this.selectedRow + '"]');
+                $row.addClass('selected');
+                $row.find('.kdna-etb-block[data-block="' + this.selectedBlock + '"]').addClass('selected');
+            }
         },
 
         initSortable: function () {
