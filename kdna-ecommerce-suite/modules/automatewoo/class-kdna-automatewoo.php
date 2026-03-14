@@ -1,6 +1,6 @@
 <?php
 /**
- * KDNA AutomateWoo Module
+ * KDNA Automations Module
  *
  * Full workflow automation engine: triggers → rules → actions with queue/scheduling,
  * abandoned cart tracking, marketing opt-in/out, guest tracking, conversion tracking,
@@ -1264,7 +1264,7 @@ class KDNA_AutomateWoo {
             case 'change_order_status':
                 $order = $data_layer['order'] ?? null;
                 if ( $order ) {
-                    $order->update_status( sanitize_text_field( $config['new_status'] ?? '' ), __( 'Status changed by AutomateWoo workflow.', 'kdna-ecommerce' ) );
+                    $order->update_status( sanitize_text_field( $config['new_status'] ?? '' ), __( 'Status changed by Automations workflow.', 'kdna-ecommerce' ) );
                     return true;
                 }
                 return false;
@@ -2458,7 +2458,7 @@ class KDNA_AutomateWoo {
         $items = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY created_at DESC LIMIT 100" );
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e( 'AutomateWoo Queue', 'kdna-ecommerce' ); ?></h1>
+            <h1><?php esc_html_e( 'Automations Queue', 'kdna-ecommerce' ); ?></h1>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>
@@ -2500,7 +2500,7 @@ class KDNA_AutomateWoo {
         $logs  = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY created_at DESC LIMIT 100" );
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e( 'AutomateWoo Logs', 'kdna-ecommerce' ); ?></h1>
+            <h1><?php esc_html_e( 'Automations Logs', 'kdna-ecommerce' ); ?></h1>
             <table class="wp-list-table widefat fixed striped">
                 <thead>
                     <tr>

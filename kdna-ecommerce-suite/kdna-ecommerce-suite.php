@@ -2,7 +2,7 @@
 /**
  * Plugin Name: E-commerce Suite
  * Plugin URI: https://kdnastaging2.com
- * Description: All-in-one WooCommerce enhancement suite: Points & Rewards, Product Reviews, Related Products, Sequential Order Numbers, Australia Post Shipping, Shipment Tracking, Smart Coupons, AutomateWoo Workflows, Follow-up Emails, and Email Template Builder.
+ * Description: All-in-one WooCommerce enhancement suite: Points & Rewards, Product Reviews, Related Products, Sequential Order Numbers, Australia Post Shipping, Shipment Tracking, Smart Coupons, Automations Workflows, Emails, and Email Template Builder.
  * Version: 1.0.0
  * Author: Krull D+A
  * Author URI: https://kdnastaging2.com

@@ -3,7 +3,7 @@
  * KDNA Email Template Builder
  *
  * Drag-and-drop email template builder with live preview.
- * Shared component used by AutomateWoo and Follow-up Emails modules.
+ * Shared component used by Automations and Emails modules.
  *
  * Templates are stored as custom post type `kdna_email_template` with
  * a JSON structure in post_content that describes rows, columns, and blocks.

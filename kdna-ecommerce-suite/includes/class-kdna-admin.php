@@ -56,12 +56,12 @@ class KDNA_Admin {
             'sanitize_callback' => [ $this, 'sanitize_smart_coupons_settings' ],
         ]);
 
-        // AutomateWoo settings
+        // Automations settings
         register_setting( 'kdna_ecommerce_automatewoo', 'kdna_automatewoo_settings', [
             'sanitize_callback' => [ $this, 'sanitize_automatewoo_settings' ],
         ]);
 
-        // Follow-up Emails settings
+        // Emails settings
         register_setting( 'kdna_ecommerce_followup_emails', 'kdna_followup_emails_settings', [
             'sanitize_callback' => [ $this, 'sanitize_followup_emails_settings' ],
         ]);
@@ -245,10 +245,10 @@ class KDNA_Admin {
                     <?php esc_html_e( 'Smart Coupons', 'kdna-ecommerce' ); ?>
                 </a>
                 <a href="?page=kdna-ecommerce&tab=automatewoo" class="nav-tab <?php echo $active_tab === 'automatewoo' ? 'nav-tab-active' : ''; ?>">
-                    <?php esc_html_e( 'AutomateWoo', 'kdna-ecommerce' ); ?>
+                    <?php esc_html_e( 'Automations', 'kdna-ecommerce' ); ?>
                 </a>
                 <a href="?page=kdna-ecommerce&tab=followup_emails" class="nav-tab <?php echo $active_tab === 'followup_emails' ? 'nav-tab-active' : ''; ?>">
-                    <?php esc_html_e( 'Follow-up Emails', 'kdna-ecommerce' ); ?>
+                    <?php esc_html_e( 'Emails', 'kdna-ecommerce' ); ?>
                 </a>
             </nav>
 
@@ -381,7 +381,7 @@ class KDNA_Admin {
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e( 'AutomateWoo', 'kdna-ecommerce' ); ?></th>
+                    <th scope="row"><?php esc_html_e( 'Automations', 'kdna-ecommerce' ); ?></th>
                     <td>
                         <label class="kdna-toggle">
                             <input type="checkbox" name="kdna_ecommerce_modules[automatewoo]" value="1" <?php checked( $modules['automatewoo'] ?? 'no', 'yes' ); ?>>
@@ -391,7 +391,7 @@ class KDNA_Admin {
                     </td>
                 </tr>
                 <tr>
-                    <th scope="row"><?php esc_html_e( 'Follow-up Emails', 'kdna-ecommerce' ); ?></th>
+                    <th scope="row"><?php esc_html_e( 'Emails', 'kdna-ecommerce' ); ?></th>
                     <td>
                         <label class="kdna-toggle">
                             <input type="checkbox" name="kdna_ecommerce_modules[followup_emails]" value="1" <?php checked( $modules['followup_emails'] ?? 'no', 'yes' ); ?>>

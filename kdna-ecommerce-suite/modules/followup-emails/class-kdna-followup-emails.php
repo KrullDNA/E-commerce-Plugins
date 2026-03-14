@@ -1,6 +1,6 @@
 <?php
 /**
- * KDNA Follow-up Emails Module
+ * KDNA Emails Module
  *
  * Comprehensive follow-up email system: scheduled emails triggered by purchases,
  * sign-ups, re-engagement, manual sends, subscriptions, and bookings. Includes
@@ -301,15 +301,15 @@ class KDNA_Followup_Emails {
     public function register_post_type() {
         register_post_type( self::CPT, [
             'labels' => [
-                'name'               => __( 'Follow-up Emails', 'kdna-ecommerce' ),
-                'singular_name'      => __( 'Follow-up Email', 'kdna-ecommerce' ),
+                'name'               => __( 'Emails', 'kdna-ecommerce' ),
+                'singular_name'      => __( 'Email', 'kdna-ecommerce' ),
                 'add_new'            => __( 'Add Email', 'kdna-ecommerce' ),
-                'add_new_item'       => __( 'Add New Follow-up Email', 'kdna-ecommerce' ),
-                'edit_item'          => __( 'Edit Follow-up Email', 'kdna-ecommerce' ),
-                'new_item'           => __( 'New Follow-up Email', 'kdna-ecommerce' ),
+                'add_new_item'       => __( 'Add New Email', 'kdna-ecommerce' ),
+                'edit_item'          => __( 'Edit Email', 'kdna-ecommerce' ),
+                'new_item'           => __( 'New Email', 'kdna-ecommerce' ),
                 'view_item'          => __( 'View Email', 'kdna-ecommerce' ),
                 'search_items'       => __( 'Search Emails', 'kdna-ecommerce' ),
-                'not_found'          => __( 'No follow-up emails found.', 'kdna-ecommerce' ),
+                'not_found'          => __( 'No emails found.', 'kdna-ecommerce' ),
                 'not_found_in_trash' => __( 'No emails in trash.', 'kdna-ecommerce' ),
             ],
             'public'       => false,
@@ -682,7 +682,7 @@ class KDNA_Followup_Emails {
     }
 
     public function add_admin_pages() {
-        add_submenu_page( 'kdna-ecommerce', __( 'Follow-up Emails', 'kdna-ecommerce' ), __( 'Follow-up Emails', 'kdna-ecommerce' ), 'manage_woocommerce', 'edit.php?post_type=' . self::CPT );
+        add_submenu_page( 'kdna-ecommerce', __( 'Emails', 'kdna-ecommerce' ), __( 'Emails', 'kdna-ecommerce' ), 'manage_woocommerce', 'edit.php?post_type=' . self::CPT );
         add_submenu_page( 'kdna-ecommerce', __( 'FUE Queue', 'kdna-ecommerce' ), __( 'FUE Queue', 'kdna-ecommerce' ), 'manage_woocommerce', 'kdna-fue-queue', [ $this, 'render_queue_page' ] );
         add_submenu_page( 'kdna-ecommerce', __( 'FUE Reports', 'kdna-ecommerce' ), __( 'FUE Reports', 'kdna-ecommerce' ), 'manage_woocommerce', 'kdna-fue-reports', [ $this, 'render_reports_page' ] );
         add_submenu_page( 'kdna-ecommerce', __( 'Subscribers', 'kdna-ecommerce' ), __( 'Subscribers', 'kdna-ecommerce' ), 'manage_woocommerce', 'kdna-fue-subscribers', [ $this, 'render_subscribers_page' ] );
@@ -1493,7 +1493,7 @@ class KDNA_Followup_Emails {
         $clicked= (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE sent_at >= %s AND clicked = 1", $since ) );
         $bounced= (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE sent_at >= %s AND bounced = 1", $since ) );
 
-        $subject = sprintf( __( '[%s] Follow-up Emails Daily Summary', 'kdna-ecommerce' ), get_bloginfo( 'name' ) );
+        $subject = sprintf( __( '[%s] Emails Daily Summary', 'kdna-ecommerce' ), get_bloginfo( 'name' ) );
         $body    = sprintf(
             __( "Daily Summary for %s\n\nSent: %d\nOpened: %d (%s%%)\nClicked: %d\nBounced: %d", 'kdna-ecommerce' ),
             wp_date( 'F j, Y' ),
@@ -1706,7 +1706,7 @@ class KDNA_Followup_Emails {
         $items = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY created_at DESC LIMIT 100" );
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e( 'Follow-up Emails Queue', 'kdna-ecommerce' ); ?></h1>
+            <h1><?php esc_html_e( 'Emails Queue', 'kdna-ecommerce' ); ?></h1>
             <table class="wp-list-table widefat fixed striped kdna-fue-queue-table">
                 <thead>
                     <tr>
@@ -1764,7 +1764,7 @@ class KDNA_Followup_Emails {
         ) );
         ?>
         <div class="wrap kdna-fue-report-page">
-            <h1><?php esc_html_e( 'Follow-up Emails Reports', 'kdna-ecommerce' ); ?></h1>
+            <h1><?php esc_html_e( 'Emails Reports', 'kdna-ecommerce' ); ?></h1>
 
             <div class="kdna-fue-report-header">
                 <div class="kdna-fue-report-date-range">
@@ -1911,7 +1911,7 @@ class KDNA_Followup_Emails {
     // =========================================================================
 
     public function add_dashboard_widget() {
-        wp_add_dashboard_widget( 'kdna_fue_dashboard', __( 'Follow-up Emails', 'kdna-ecommerce' ), [ $this, 'render_dashboard_widget' ] );
+        wp_add_dashboard_widget( 'kdna_fue_dashboard', __( 'Emails', 'kdna-ecommerce' ), [ $this, 'render_dashboard_widget' ] );
     }
 
     public function render_dashboard_widget() {

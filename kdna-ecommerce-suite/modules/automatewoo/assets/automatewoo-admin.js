@@ -1,5 +1,5 @@
 /**
- * KDNA AutomateWoo - Admin JavaScript
+ * KDNA Automations - Admin JavaScript
  * Handles the workflow editor UI: trigger selection, rule builder, action builder, timing, and variables.
  */
 (function ($) {
