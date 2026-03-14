@@ -254,7 +254,7 @@
                     html += '</div>';
                     break;
                 case 'blank_row':
-                    html += '<div class="kdna-etb-blankrow-inner" style="height:' + (p.height || '40px') + ';min-height:20px;background:' + (p.bg_color || '#f7f7f7') + ';padding:' + (p.padding || '0px') + ';"></div>';
+                    html += '<div class="kdna-etb-blankrow-inner" style="width:' + (p.width || '100%') + ';height:' + (p.height || '40px') + ';min-height:20px;background:' + (p.bg_color || '#f7f7f7') + ';padding:' + (p.padding || '0px') + ';box-sizing:border-box;"></div>';
                     break;
                 case 'content':
                     html += '<div style="padding:' + (p.padding || '10px 20px') + ';border:1px dashed #c3c4c7;border-radius:4px;background:#f0f8ff;">';
@@ -438,6 +438,7 @@
                     html += this.alignField('text_align', p.text_align || 'center');
                     break;
                 case 'blank_row':
+                    html += this.field('text', 'width', 'Width', p.width || '100%');
                     html += this.field('text', 'height', 'Height', p.height || '40px');
                     html += this.colorField('bg_color', 'Background Color', p.bg_color || '#f7f7f7');
                     html += this.field('text', 'padding', 'Padding', p.padding || '0px');
@@ -658,7 +659,14 @@
                 self.el.find('.kdna-etb-device-btn').removeClass('active');
                 $(this).addClass('active');
                 var device = $(this).data('device');
-                self.el.find('.kdna-etb-canvas').toggleClass('mobile-preview', device === 'mobile');
+                var isMobile = device === 'mobile';
+                self.el.find('.kdna-etb-canvas').toggleClass('mobile-preview', isMobile);
+                var frame = self.el.find('.kdna-etb-email-frame');
+                if (isMobile) {
+                    frame.css('max-width', '375px');
+                } else {
+                    frame.css('max-width', (parseInt(self.structure.settings.width) + 60) + 'px');
+                }
             });
 
             // Preview
