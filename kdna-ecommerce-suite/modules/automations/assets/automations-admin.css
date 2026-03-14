@@ -1,0 +1,494 @@
+/* KDNA Automations - Admin Styles */
+
+/* ============================================================
+   Workflow List Table
+   ============================================================ */
+.post-type-kdna_aw_workflow .column-workflow_status {
+    width: 80px;
+}
+.post-type-kdna_aw_workflow .column-workflow_trigger {
+    width: 200px;
+}
+.post-type-kdna_aw_workflow .column-workflow_runs {
+    width: 80px;
+}
+
+.kdna-aw-status-badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 18px;
+}
+.kdna-aw-status-badge.active {
+    background: #d4edda;
+    color: #155724;
+}
+.kdna-aw-status-badge.disabled {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* ============================================================
+   Workflow Editor
+   ============================================================ */
+#kdna-aw-workflow-editor {
+    margin-top: 10px;
+}
+
+.kdna-aw-editor-section {
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    margin-bottom: 16px;
+    overflow: hidden;
+}
+
+.kdna-aw-editor-section-header {
+    padding: 12px 16px;
+    background: #f6f7f7;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.kdna-aw-editor-section-header h3 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: #1d2327;
+}
+
+.kdna-aw-editor-section-body {
+    padding: 16px;
+}
+
+/* Trigger section */
+.kdna-aw-trigger-select {
+    width: 100%;
+    max-width: 500px;
+}
+
+.kdna-aw-trigger-options {
+    margin-top: 12px;
+    padding: 12px;
+    background: #f6f7f7;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    display: none;
+}
+
+.kdna-aw-trigger-options.active {
+    display: block;
+}
+
+.kdna-aw-trigger-options .form-field {
+    margin-bottom: 10px;
+}
+
+.kdna-aw-trigger-options label {
+    display: block;
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 4px;
+    color: #50575e;
+}
+
+/* Rules section */
+.kdna-aw-rule-group {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 12px;
+    margin-bottom: 10px;
+    background: #fafafa;
+    position: relative;
+}
+
+.kdna-aw-rule-group-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.kdna-aw-rule-group-header h4 {
+    margin: 0;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #999;
+    letter-spacing: 0.5px;
+}
+
+.kdna-aw-or-divider {
+    text-align: center;
+    margin: 12px 0;
+    position: relative;
+}
+
+.kdna-aw-or-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    border-top: 1px solid #e0e0e0;
+}
+
+.kdna-aw-or-divider span {
+    display: inline-block;
+    background: #fff;
+    padding: 0 12px;
+    position: relative;
+    z-index: 1;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #999;
+}
+
+.kdna-aw-rule-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.kdna-aw-rule-row select {
+    min-width: 160px;
+}
+
+.kdna-aw-rule-row input[type="text"],
+.kdna-aw-rule-row input[type="number"] {
+    min-width: 120px;
+}
+
+.kdna-aw-rule-row .kdna-aw-remove-rule {
+    color: #d63638;
+    cursor: pointer;
+    font-size: 18px;
+    border: none;
+    background: none;
+    padding: 4px;
+}
+
+.kdna-aw-rule-row .kdna-aw-remove-rule:hover {
+    color: #b32d2e;
+}
+
+.kdna-aw-add-rule,
+.kdna-aw-add-rule-group {
+    margin-top: 8px;
+}
+
+/* Actions section */
+.kdna-aw-action-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.kdna-aw-action-header {
+    padding: 10px 12px;
+    background: #f6f7f7;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+}
+
+.kdna-aw-action-header:hover {
+    background: #e8e8e8;
+}
+
+.kdna-aw-action-header h4 {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.kdna-aw-action-header .dashicons {
+    color: #999;
+    transition: transform 0.2s;
+}
+
+.kdna-aw-action-item.open .kdna-aw-action-header .dashicons {
+    transform: rotate(180deg);
+}
+
+.kdna-aw-action-body {
+    padding: 12px;
+    display: none;
+}
+
+.kdna-aw-action-item.open .kdna-aw-action-body {
+    display: block;
+}
+
+.kdna-aw-action-body .form-field {
+    margin-bottom: 10px;
+}
+
+.kdna-aw-action-body label {
+    display: block;
+    font-weight: 600;
+    font-size: 12px;
+    margin-bottom: 4px;
+    color: #50575e;
+}
+
+.kdna-aw-action-body input[type="text"],
+.kdna-aw-action-body input[type="number"],
+.kdna-aw-action-body input[type="email"],
+.kdna-aw-action-body select,
+.kdna-aw-action-body textarea {
+    width: 100%;
+}
+
+.kdna-aw-action-body textarea {
+    min-height: 100px;
+    resize: vertical;
+}
+
+.kdna-aw-action-controls {
+    display: flex;
+    gap: 4px;
+}
+
+.kdna-aw-action-controls button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #999;
+}
+
+.kdna-aw-action-controls button:hover {
+    color: #d63638;
+}
+
+.kdna-aw-action-controls .move-handle {
+    cursor: grab;
+}
+
+.kdna-aw-action-controls .move-handle:hover {
+    color: #0073aa;
+}
+
+/* Timing section */
+.kdna-aw-timing-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.kdna-aw-timing-row select,
+.kdna-aw-timing-row input[type="number"] {
+    width: auto;
+}
+
+.kdna-aw-timing-row input[type="number"] {
+    width: 80px;
+}
+
+.kdna-aw-timing-scheduled {
+    margin-top: 10px;
+    display: none;
+}
+
+.kdna-aw-timing-scheduled.visible {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* ============================================================
+   Variables inserter
+   ============================================================ */
+.kdna-aw-variables-btn {
+    position: relative;
+}
+
+.kdna-aw-variables-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    z-index: 100;
+    background: #fff;
+    border: 1px solid #c3c4c7;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    min-width: 280px;
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+.kdna-aw-variables-dropdown.open {
+    display: block;
+}
+
+.kdna-aw-variables-group h5 {
+    margin: 0;
+    padding: 8px 12px;
+    background: #f6f7f7;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #999;
+    border-bottom: 1px solid #e0e0e0;
+    position: sticky;
+    top: 0;
+}
+
+.kdna-aw-variable-item {
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 12px;
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.kdna-aw-variable-item:hover {
+    background: #f0f6fc;
+    color: #0073aa;
+}
+
+.kdna-aw-variable-item code {
+    font-size: 11px;
+    color: #999;
+}
+
+/* ============================================================
+   Queue & Logs Pages
+   ============================================================ */
+.kdna-aw-queue-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.kdna-aw-queue-status.pending {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.kdna-aw-queue-status.running {
+    background: #cce5ff;
+    color: #004085;
+}
+
+.kdna-aw-queue-status.completed {
+    background: #d4edda;
+    color: #155724;
+}
+
+.kdna-aw-queue-status.failed {
+    background: #f8d7da;
+    color: #721c24;
+}
+
+/* Log detail modal */
+.kdna-aw-log-detail {
+    background: #f6f7f7;
+    border: 1px solid #e0e0e0;
+    border-radius: 4px;
+    padding: 16px;
+    margin-top: 8px;
+}
+
+.kdna-aw-log-detail pre {
+    background: #1d2327;
+    color: #e0e0e0;
+    padding: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+/* ============================================================
+   Abandoned Carts Page
+   ============================================================ */
+.kdna-aw-cart-contents {
+    font-size: 12px;
+}
+
+.kdna-aw-cart-contents ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.kdna-aw-cart-contents li {
+    padding: 2px 0;
+    border-bottom: 1px solid #f0f0f1;
+}
+
+.kdna-aw-cart-contents li:last-child {
+    border-bottom: none;
+}
+
+/* ============================================================
+   Dashboard Widget
+   ============================================================ */
+.kdna-aw-dashboard-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+}
+
+.kdna-aw-stat-card {
+    text-align: center;
+    padding: 16px 8px;
+    background: #f6f7f7;
+    border-radius: 4px;
+}
+
+.kdna-aw-stat-card .value {
+    font-size: 24px;
+    font-weight: 700;
+    color: #1d2327;
+    line-height: 1.2;
+}
+
+.kdna-aw-stat-card .label {
+    font-size: 11px;
+    color: #999;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* ============================================================
+   Responsive
+   ============================================================ */
+@media (max-width: 782px) {
+    .kdna-aw-rule-row {
+        flex-wrap: wrap;
+    }
+
+    .kdna-aw-rule-row select,
+    .kdna-aw-rule-row input[type="text"],
+    .kdna-aw-rule-row input[type="number"] {
+        min-width: 100%;
+    }
+
+    .kdna-aw-timing-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .kdna-aw-dashboard-stats {
+        grid-template-columns: 1fr;
+    }
+}

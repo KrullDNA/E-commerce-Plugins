@@ -2,7 +2,7 @@
 /**
  * Plugin Name: E-commerce Suite
  * Plugin URI: https://kdnastaging2.com
- * Description: All-in-one WooCommerce enhancement suite: Points & Rewards, Product Reviews, Related Products, Sequential Order Numbers, Australia Post Shipping, and Shipment Tracking.
+ * Description: All-in-one WooCommerce enhancement suite: Points & Rewards, Product Reviews, Related Products, Sequential Order Numbers, Australia Post Shipping, Shipment Tracking, Smart Coupons, Automations Workflows, Emails, and Email Template Builder.
  * Version: 1.0.0
  * Author: Krull D+A
  * Author URI: https://kdnastaging2.com
@@ -60,8 +60,18 @@ class KDNA_Ecommerce_Suite {
                 'australia_post'     => 'no',
                 'shipment_tracking'  => 'no',
                 'tax_invoice'        => 'no',
+                'smart_coupons'      => 'no',
+                'automations'        => 'no',
+                'followup_emails'    => 'no',
             ]);
         }
+        // Install database tables for modules that need them.
+        require_once KDNA_ECOMMERCE_PATH . 'modules/automations/class-kdna-automations.php';
+        KDNA_Automations::install();
+
+        require_once KDNA_ECOMMERCE_PATH . 'modules/followup-emails/class-kdna-followup-emails.php';
+        KDNA_Followup_Emails::install();
+
         flush_rewrite_rules();
     }
 
@@ -126,6 +136,25 @@ class KDNA_Ecommerce_Suite {
         // even before the module is enabled.
         KDNA_Tax_Invoice::register_test_pdf_handler();
 
+        if ( $this->is_module_active( 'smart_coupons' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/smart-coupons/class-kdna-smart-coupons.php';
+            $this->modules['smart_coupons'] = new KDNA_Smart_Coupons();
+        }
+
+        if ( $this->is_module_active( 'automations' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/automations/class-kdna-automations.php';
+            $this->modules['automations'] = new KDNA_Automations();
+        }
+
+        if ( $this->is_module_active( 'followup_emails' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'modules/followup-emails/class-kdna-followup-emails.php';
+            $this->modules['followup_emails'] = new KDNA_Followup_Emails();
+        }
+
+        // Load Email Template Builder (always available, shared component).
+        require_once KDNA_ECOMMERCE_PATH . 'includes/email-builder/class-kdna-email-builder.php';
+        new KDNA_Email_Builder();
+
         // Load Elementor widgets if Elementor is active
         add_action( 'elementor/widgets/register', [ $this, 'register_elementor_widgets' ] );
     }
@@ -150,6 +179,11 @@ class KDNA_Ecommerce_Suite {
         if ( $this->is_module_active( 'related_products' ) ) {
             require_once KDNA_ECOMMERCE_PATH . 'elementor/class-kdna-related-products-widget.php';
             $widgets_manager->register( new KDNA_Related_Products_Widget() );
+        }
+
+        if ( $this->is_module_active( 'smart_coupons' ) ) {
+            require_once KDNA_ECOMMERCE_PATH . 'elementor/class-kdna-smart-coupons-widget.php';
+            $widgets_manager->register( new KDNA_Smart_Coupons_Widget() );
         }
     }
 
