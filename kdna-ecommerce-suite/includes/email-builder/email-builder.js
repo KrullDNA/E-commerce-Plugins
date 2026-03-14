@@ -540,10 +540,22 @@
                 }
             });
 
-            // Add row
+            // Add row — insert a blank_row block so the user can configure height, background, etc.
             this.el.on('click', '.kdna-etb-add-row', function () {
-                self.structure.rows.push({ blocks: [] });
+                var defaults = self.blocks['blank_row'] ? self.blocks['blank_row'].defaults : { height: '40px', bg_color: '#f7f7f7', padding: '0px' };
+                self.structure.rows.push({ blocks: [{ type: 'blank_row', props: $.extend(true, {}, defaults) }] });
                 self.refreshCanvas();
+                self.selectBlock(self.structure.rows.length - 1, 0);
+            });
+
+            // Click on a block palette item — add it to the canvas (fallback for non-drag interactions).
+            this.el.on('click', '.kdna-etb-block-item', function () {
+                var type = $(this).data('type');
+                if (!type) return;
+                var defaults = self.blocks[type] ? self.blocks[type].defaults : {};
+                self.structure.rows.push({ blocks: [{ type: type, props: $.extend(true, {}, defaults) }] });
+                self.refreshCanvas();
+                self.selectBlock(self.structure.rows.length - 1, 0);
             });
 
             // Row actions
