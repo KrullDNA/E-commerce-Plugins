@@ -40,6 +40,7 @@ class KDNA_Smart_Coupons {
     // ----- Usage restriction meta keys -----
     const META_PRODUCT_BRANDS          = '_kdna_sc_product_brands';
     const META_EXCLUDE_BRANDS          = '_kdna_sc_exclude_brands';
+    const META_EXCLUDED_EMAILS         = '_kdna_sc_excluded_emails';
 
     // ----- Post-meta keys for products -----
     const META_PRODUCT_COUPONS         = '_kdna_sc_coupon_titles';
@@ -100,6 +101,9 @@ class KDNA_Smart_Coupons {
 
         // ---- Brand restriction validation ----
         add_filter( 'woocommerce_coupon_is_valid_for_product', [ $this, 'validate_brand_restriction' ], 10, 4 );
+
+        // ---- Excluded emails validation ----
+        add_filter( 'woocommerce_coupon_is_valid', [ $this, 'validate_excluded_emails' ], 10, 3 );
 
         // ---- Execute coupon actions (add products to cart) ----
         add_action( 'woocommerce_applied_coupon', [ $this, 'execute_coupon_actions' ] );
@@ -507,6 +511,39 @@ class KDNA_Smart_Coupons {
         </div>
         <?php
         endif;
+
+        // Smart Coupons: Restrictions dropdown + Add button.
+        $excluded_emails = get_post_meta( $coupon_id, self::META_EXCLUDED_EMAILS, true );
+        $excluded_emails = is_array( $excluded_emails ) ? $excluded_emails : [];
+        ?>
+        <div class="options_group" style="background:#f0fff0;border-top:1px solid #e0e0e0;">
+            <p class="form-field" style="display:flex;align-items:center;gap:8px;">
+                <label style="min-width:140px;"><?php esc_html_e( 'Smart Coupons: Restrictions', 'kdna-ecommerce' ); ?></label>
+                <select id="kdna_sc_restriction_type" style="min-width:200px;">
+                    <option value="excluded_emails"><?php esc_html_e( 'Excluded emails', 'kdna-ecommerce' ); ?></option>
+                </select>
+                <button type="button" class="button" id="kdna_sc_add_restriction"><?php esc_html_e( 'Add', 'kdna-ecommerce' ); ?></button>
+            </p>
+
+            <div id="kdna_sc_excluded_emails_field" style="<?php echo empty( $excluded_emails ) ? 'display:none;' : ''; ?>padding:0 12px 12px;">
+                <p class="form-field">
+                    <label for="kdna_sc_excluded_emails"><?php esc_html_e( 'Excluded emails', 'kdna-ecommerce' ); ?></label>
+                    <textarea id="kdna_sc_excluded_emails" name="<?php echo esc_attr( self::META_EXCLUDED_EMAILS ); ?>" rows="3" style="width:50%;" placeholder="<?php esc_attr_e( 'one@example.com, two@example.com', 'kdna-ecommerce' ); ?>"><?php echo esc_textarea( implode( ', ', $excluded_emails ) ); ?></textarea>
+                    <?php echo wc_help_tip( __( 'Emails listed here will be blocked from using this coupon. Separate multiple emails with commas.', 'kdna-ecommerce' ) ); ?>
+                </p>
+            </div>
+        </div>
+        <script>
+        jQuery(function($) {
+            $('#kdna_sc_add_restriction').on('click', function() {
+                var type = $('#kdna_sc_restriction_type').val();
+                if (type === 'excluded_emails') {
+                    $('#kdna_sc_excluded_emails_field').show();
+                }
+            });
+        });
+        </script>
+        <?php
     }
 
     public function add_coupon_data_tabs( $tabs ) {
@@ -658,6 +695,19 @@ class KDNA_Smart_Coupons {
         } else {
             delete_post_meta( $coupon_id, self::META_EXCLUDE_BRANDS );
         }
+
+        // Excluded emails (comma-separated textarea).
+        if ( isset( $_POST[ self::META_EXCLUDED_EMAILS ] ) ) {
+            $raw = sanitize_textarea_field( wp_unslash( $_POST[ self::META_EXCLUDED_EMAILS ] ) );
+            $emails = array_filter( array_map( 'trim', explode( ',', $raw ) ) );
+            $emails = array_map( 'sanitize_email', $emails );
+            $emails = array_filter( $emails );
+            if ( ! empty( $emails ) ) {
+                update_post_meta( $coupon_id, self::META_EXCLUDED_EMAILS, $emails );
+            } else {
+                delete_post_meta( $coupon_id, self::META_EXCLUDED_EMAILS );
+            }
+        }
     }
 
     // =========================================================================
@@ -724,6 +774,40 @@ class KDNA_Smart_Coupons {
             if ( ! empty( array_intersect( $product_brands, $exclude_brands ) ) ) {
                 return false;
             }
+        }
+
+        return $valid;
+    }
+
+    /**
+     * Validate excluded emails — block coupon if the current user's email is excluded.
+     */
+    public function validate_excluded_emails( $valid, $coupon, $discounts ) {
+        if ( ! $valid ) {
+            return $valid;
+        }
+
+        $excluded_emails = get_post_meta( $coupon->get_id(), self::META_EXCLUDED_EMAILS, true );
+        if ( empty( $excluded_emails ) ) {
+            return $valid;
+        }
+
+        $excluded_list = array_filter( array_map( 'strtolower', array_map( 'trim', explode( "\n", $excluded_emails ) ) ) );
+        if ( empty( $excluded_list ) ) {
+            return $valid;
+        }
+
+        // Get the current customer email.
+        $email = '';
+        if ( is_user_logged_in() ) {
+            $current_user = wp_get_current_user();
+            $email        = strtolower( $current_user->user_email );
+        } elseif ( WC()->customer ) {
+            $email = strtolower( WC()->customer->get_billing_email() );
+        }
+
+        if ( ! empty( $email ) && in_array( $email, $excluded_list, true ) ) {
+            throw new \Exception( __( 'This coupon is not valid for your email address.', 'kdna-ecommerce' ) );
         }
 
         return $valid;

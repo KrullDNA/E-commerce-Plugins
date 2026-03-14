@@ -463,7 +463,8 @@
                     var defaults = self.blocks[type] ? self.blocks[type].defaults : {};
                     var rowIndex = $(this).data('index');
                     if (typeof rowIndex !== 'undefined') {
-                        self.structure.rows[rowIndex].blocks.push({ type: type, props: $.extend(true, {}, defaults) });
+                        // Insert a new row after the dropped-on row (blocks always stack vertically).
+                        self.structure.rows.splice(rowIndex + 1, 0, { blocks: [{ type: type, props: $.extend(true, {}, defaults) }] });
                     } else {
                         self.structure.rows.push({ blocks: [{ type: type, props: $.extend(true, {}, defaults) }] });
                     }
