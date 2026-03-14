@@ -99,6 +99,7 @@ class KDNA_Followup_Emails {
         add_action( 'wp_ajax_kdna_fue_import_subscribers', [ $this, 'ajax_import_subscribers' ] );
         add_action( 'wp_ajax_kdna_fue_export_subscribers', [ $this, 'ajax_export_subscribers' ] );
         add_action( 'wp_ajax_kdna_fue_export_report', [ $this, 'ajax_export_report' ] );
+        add_action( 'wp_ajax_kdna_fue_resend_to_subscriber', [ $this, 'ajax_resend_to_subscriber' ] );
 
         // Shortcodes.
         add_shortcode( 'kdna_fue_unsubscribe', [ $this, 'shortcode_unsubscribe' ] );
@@ -568,6 +569,11 @@ class KDNA_Followup_Emails {
                                     <option value="<?php echo esc_attr( $tpl->ID ); ?>" <?php selected( $template_id, $tpl->ID ); ?>><?php echo esc_html( $tpl->post_title ); ?></option>
                                 <?php endforeach; ?>
                             </select>
+                            <input type="hidden" name="fue_selected_template_id" class="kdna-fue-selected-template-id" value="<?php echo esc_attr( $template_id ); ?>" />
+                        </div>
+                        <div class="kdna-fue-template-preview" <?php echo empty( $template_id ) ? 'style="display:none;"' : ''; ?>>
+                            <h4><?php esc_html_e( 'Template Preview', 'kdna-ecommerce' ); ?></h4>
+                            <div class="kdna-fue-template-preview-frame"></div>
                         </div>
                     </div>
                     <p class="description"><?php esc_html_e( 'If no template is selected, the post content editor above will be used as the email body.', 'kdna-ecommerce' ); ?></p>
@@ -908,6 +914,21 @@ class KDNA_Followup_Emails {
 
         $email_id = $queue_item->email_id;
         $to       = $queue_item->customer_email;
+
+        // Generate coupon at send time if the email requires one but the queue entry has none.
+        if ( empty( $queue_item->coupon_code ) && get_post_meta( $email_id, self::META_INCLUDE_COUPON, true ) === 'yes' ) {
+            $coupon_config = get_post_meta( $email_id, self::META_COUPON_CONFIG, true ) ?: [];
+            $coupon_code   = $this->generate_coupon( $email_id, $to );
+
+            // Store the coupon code back in the queue record.
+            global $wpdb;
+            $wpdb->update(
+                $wpdb->prefix . self::TABLE_QUEUE,
+                [ 'coupon_code' => $coupon_code ],
+                [ 'id' => $queue_item->id ]
+            );
+            $queue_item->coupon_code = $coupon_code;
+        }
 
         // Build context for merge tags.
         $context = $this->build_context( $queue_item );
@@ -1695,6 +1716,85 @@ class KDNA_Followup_Emails {
         exit;
     }
 
+
+    public function ajax_resend_to_subscriber() {
+        check_ajax_referer( 'kdna_fue_admin', '_wpnonce' );
+        if ( ! current_user_can( 'manage_woocommerce' ) ) wp_send_json_error();
+
+        global $wpdb;
+        $subscriber_id = absint( $_POST['id'] ?? 0 );
+        if ( ! $subscriber_id ) {
+            wp_send_json_error( __( 'Invalid subscriber ID.', 'kdna-ecommerce' ) );
+        }
+
+        // Look up the subscriber.
+        $subscriber = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}" . self::TABLE_SUBSCRIBERS . " WHERE id = %d",
+            $subscriber_id
+        ) );
+
+        if ( ! $subscriber ) {
+            wp_send_json_error( __( 'Subscriber not found.', 'kdna-ecommerce' ) );
+        }
+
+        // Find the most recent sent queue entry for this subscriber to determine the email to resend.
+        $last_sent = $wpdb->get_row( $wpdb->prepare(
+            "SELECT * FROM {$wpdb->prefix}" . self::TABLE_QUEUE . " WHERE customer_email = %s AND status = 'sent' ORDER BY sent_at DESC LIMIT 1",
+            $subscriber->email
+        ) );
+
+        if ( ! $last_sent ) {
+            // No previously sent email found; try to find an active follow-up email to send.
+            $active_emails = get_posts( [
+                'post_type'      => self::CPT,
+                'posts_per_page' => 1,
+                'post_status'    => 'publish',
+                'meta_query'     => [
+                    [ 'key' => self::META_STATUS, 'value' => 'active' ],
+                ],
+            ] );
+
+            if ( empty( $active_emails ) ) {
+                wp_send_json_error( __( 'No active follow-up email found for this subscriber.', 'kdna-ecommerce' ) );
+            }
+
+            $email_id = $active_emails[0]->ID;
+        } else {
+            $email_id = $last_sent->email_id;
+        }
+
+        // Queue a new entry for re-sending.
+        $tracking_key = wp_generate_password( 32, false );
+        $subject      = get_post_meta( $email_id, self::META_SUBJECT, true ) ?: get_the_title( $email_id );
+
+        // Generate coupon if needed.
+        $coupon_code = '';
+        if ( get_post_meta( $email_id, self::META_INCLUDE_COUPON, true ) === 'yes' ) {
+            $coupon_code = $this->generate_coupon( $email_id, $subscriber->email );
+        }
+
+        $wpdb->insert( $wpdb->prefix . self::TABLE_QUEUE, [
+            'email_id'       => $email_id,
+            'customer_email' => $subscriber->email,
+            'customer_id'    => $subscriber->user_id,
+            'order_id'       => 0,
+            'product_id'     => 0,
+            'subject'        => $subject,
+            'coupon_code'    => $coupon_code,
+            'status'         => 'pending',
+            'priority'       => 10,
+            'scheduled_at'   => current_time( 'mysql' ),
+            'tracking_key'   => $tracking_key,
+        ] );
+
+        wp_send_json_success( [
+            'message' => sprintf(
+                __( 'Email "%s" queued for resending to %s.', 'kdna-ecommerce' ),
+                get_the_title( $email_id ),
+                $subscriber->email
+            ),
+        ] );
+    }
 
     // =========================================================================
     // Admin Pages (Queue, Reports, Subscribers)

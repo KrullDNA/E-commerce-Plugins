@@ -111,6 +111,9 @@ class KDNA_Smart_Coupons {
         // ---- Expiry time — append HH:MM to date_expires on save ----
         add_action( 'woocommerce_coupon_options_save', [ $this, 'apply_expiry_time_on_save' ], 20, 2 );
 
+        // ---- Max discount cap ----
+        add_filter( 'woocommerce_coupon_get_discount_amount', [ $this, 'cap_max_discount' ], 15, 5 );
+
         // ---- Execute coupon actions (add products to cart) ----
         add_action( 'woocommerce_applied_coupon', [ $this, 'execute_coupon_actions' ] );
 
@@ -428,6 +431,24 @@ class KDNA_Smart_Coupons {
             'description' => __( 'When checked, this coupon will be included for display on cart / checkout / My Account pages - for all eligible customers.', 'kdna-ecommerce' ),
             'value'       => get_post_meta( $coupon_id, self::META_IS_VISIBLE_STOREWIDE, true ),
             'cbvalue'     => 'yes',
+        ] );
+
+        woocommerce_wp_checkbox( [
+            'id'          => self::META_PICK_PRICE_OF_PRODUCT,
+            'label'       => __( 'Pick price of product?', 'kdna-ecommerce' ),
+            'description' => __( 'When checked and used with auto-generate, the generated coupon amount will equal the product price instead of the template coupon amount.', 'kdna-ecommerce' ),
+            'value'       => get_post_meta( $coupon_id, self::META_PICK_PRICE_OF_PRODUCT, true ),
+            'cbvalue'     => 'yes',
+        ] );
+
+        woocommerce_wp_text_input( [
+            'id'          => self::META_MAX_DISCOUNT,
+            'label'       => __( 'Max discount', 'kdna-ecommerce' ),
+            'description' => __( 'Maximum discount amount this coupon can give. Leave blank for no limit.', 'kdna-ecommerce' ),
+            'desc_tip'    => true,
+            'type'        => 'text',
+            'placeholder' => __( 'No limit', 'kdna-ecommerce' ),
+            'value'       => get_post_meta( $coupon_id, self::META_MAX_DISCOUNT, true ),
         ] );
 
         woocommerce_wp_checkbox( [
@@ -953,6 +974,38 @@ class KDNA_Smart_Coupons {
             }
         }
         return null;
+    }
+
+    // =========================================================================
+    // Max Discount Cap
+    // =========================================================================
+
+    /**
+     * Cap the discount amount if a max discount is set for the coupon.
+     * Tracks cumulative discount across cart items via a static variable.
+     */
+    public function cap_max_discount( $discount, $discounting_amount, $cart_item, $single, $coupon ) {
+        $max = get_post_meta( $coupon->get_id(), self::META_MAX_DISCOUNT, true );
+        if ( empty( $max ) || (float) $max <= 0 ) {
+            return $discount;
+        }
+        $max = (float) $max;
+
+        // Track cumulative discount for this coupon across all cart items.
+        static $totals = [];
+        $coupon_id = $coupon->get_id();
+        if ( ! isset( $totals[ $coupon_id ] ) ) {
+            $totals[ $coupon_id ] = 0;
+        }
+
+        $remaining = $max - $totals[ $coupon_id ];
+        if ( $remaining <= 0 ) {
+            return 0;
+        }
+
+        $capped = min( $discount, $remaining );
+        $totals[ $coupon_id ] += $capped;
+        return $capped;
     }
 
     // =========================================================================
@@ -1649,9 +1702,20 @@ class KDNA_Smart_Coupons {
         if ( $coupon->get_discount_type() !== 'store_credit' ) {
             return $discount;
         }
-        if ( wc_prices_include_tax() ) {
-            return $discount;
+
+        // When prices do NOT include tax, the discount should apply to the
+        // item price + tax so the store credit covers the full cost.
+        if ( ! wc_prices_include_tax() && $cart_item && isset( $cart_item['data'] ) ) {
+            $product = $cart_item['data'];
+            if ( $product && wc_tax_enabled() ) {
+                $tax_rates   = WC_Tax::get_rates( $product->get_tax_class() );
+                $item_taxes  = WC_Tax::calc_tax( $discounting_amount, $tax_rates, false );
+                $tax_amount  = array_sum( $item_taxes );
+                // Increase the discount to cover the tax portion.
+                $discount = min( $coupon->get_amount(), $discounting_amount + $tax_amount );
+            }
         }
+
         return $discount;
     }
 
@@ -2274,8 +2338,9 @@ class KDNA_Smart_Coupons {
             'post_status'    => 'publish',
             'posts_per_page' => 20,
             'meta_query'     => [
+                'relation' => 'AND',
                 [
-                    'key'     => 'customer_email',
+                    'key'     => '_email_restrictions',
                     'value'   => $email,
                     'compare' => 'LIKE',
                 ],

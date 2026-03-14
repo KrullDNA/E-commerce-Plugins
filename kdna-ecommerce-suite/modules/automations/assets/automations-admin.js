@@ -212,6 +212,7 @@
         },
 
         initSortable: function () {
+            var self = this;
             this.$actionsWrap.sortable({
                 handle: '.move-handle',
                 items: '.kdna-aw-action-item',
@@ -219,13 +220,13 @@
                 tolerance: 'pointer',
                 update: function () {
                     // Re-index action names.
-                    this.$actionsWrap.find('.kdna-aw-action-item').each(function (i) {
+                    self.$actionsWrap.find('.kdna-aw-action-item').each(function (i) {
                         $(this).find('[name^="workflow_actions["]').each(function () {
                             var name = $(this).attr('name');
                             $(this).attr('name', name.replace(/workflow_actions\[\d+\]/, 'workflow_actions[' + i + ']'));
                         });
                     });
-                }.bind(this)
+                }
             });
         },
 

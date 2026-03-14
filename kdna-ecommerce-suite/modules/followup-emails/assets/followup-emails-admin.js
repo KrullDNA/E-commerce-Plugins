@@ -101,10 +101,11 @@
                 $(this).closest('li').slideUp(200, function () { $(this).remove(); });
             });
 
-            // Template change - show/hide content editor.
+            // Template change - load template and show/hide content editor.
             this.$editor.on('change', '.kdna-fue-template-select', function () {
                 var val = $(this).val();
                 self.$editor.find('.kdna-fue-content-editor').toggle(!val);
+                self.onTemplateChange(val);
             });
         },
 
@@ -123,6 +124,12 @@
             // Set coupon.
             if (data.include_coupon === 'yes') {
                 this.$couponToggle.prop('checked', true).trigger('change');
+            }
+
+            // Load template preview if a template is already selected.
+            var selectedTemplate = this.$editor.find('.kdna-fue-template-select').val();
+            if (selectedTemplate) {
+                this.onTemplateChange(selectedTemplate);
             }
         },
 
@@ -179,6 +186,53 @@
             }).fail(function () {
                 $btn.prop('disabled', false).text(kdnaFUE.i18n.send_test || 'Send Test');
                 alert(kdnaFUE.i18n.test_failed || 'Failed to send test email.');
+            });
+        },
+
+        onTemplateChange: function (templateId) {
+            var $hiddenField = this.$editor.find('.kdna-fue-selected-template-id');
+            var $preview     = this.$editor.find('.kdna-fue-template-preview');
+            var $previewFrame = this.$editor.find('.kdna-fue-template-preview-frame');
+
+            // Store the selected template ID in the hidden field.
+            $hiddenField.val(templateId);
+
+            if (!templateId) {
+                $preview.hide();
+                $previewFrame.empty();
+                return;
+            }
+
+            // Load the template via the email builder AJAX endpoint.
+            $previewFrame.html('<p>' + (kdnaFUE.i18n.loading_template || 'Loading template...') + '</p>');
+            $preview.show();
+
+            $.post(kdnaFUE.ajaxUrl, {
+                action: 'kdna_email_builder_get_template',
+                template_id: templateId,
+                _wpnonce: kdnaFUE.nonce
+            }, function (response) {
+                if (response.success && response.data) {
+                    var html = response.data.compiled_html || response.data.html || '';
+                    if (html) {
+                        $previewFrame.html(
+                            '<iframe class="kdna-fue-template-preview-iframe" ' +
+                            'style="width:100%;min-height:400px;border:1px solid #ddd;background:#fff;" ' +
+                            'sandbox="allow-same-origin"></iframe>'
+                        );
+                        var iframe = $previewFrame.find('iframe')[0];
+                        var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                        iframeDoc.open();
+                        iframeDoc.write(html);
+                        iframeDoc.close();
+                    } else {
+                        $previewFrame.html('<p>' + (response.data.title || 'Template selected.') + '</p>');
+                    }
+                } else {
+                    $previewFrame.html('<p style="color:#a00;">' + (kdnaFUE.i18n.template_load_failed || 'Failed to load template preview.') + '</p>');
+                }
+            }).fail(function () {
+                $previewFrame.html('<p style="color:#a00;">' + (kdnaFUE.i18n.template_load_failed || 'Failed to load template preview.') + '</p>');
             });
         },
 
