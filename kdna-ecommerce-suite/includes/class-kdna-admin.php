@@ -1408,22 +1408,40 @@ class KDNA_Admin {
         <?php // ===================== CUSTOMIZE COUPONS ===================== ?>
         <?php elseif ( $sub === 'customize' ) : ?>
             <h2><?php esc_html_e( 'Customize Coupons', 'kdna-ecommerce' ); ?></h2>
+
+            <?php // Enqueue the frontend coupon CSS so previews render correctly. ?>
+            <link rel="stylesheet" href="<?php echo esc_url( KDNA_ECOMMERCE_URL . 'modules/smart-coupons/assets/smart-coupons.css' ); ?>">
+            <style>
+                .kdna-sc-design-previews { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 18px; margin: 18px 0 10px; }
+                .kdna-sc-design-preview-card { position: relative; cursor: pointer; border: 3px solid transparent; border-radius: 10px; padding: 8px; transition: border-color 0.2s, box-shadow 0.2s; }
+                .kdna-sc-design-preview-card:hover { box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+                .kdna-sc-design-preview-card.selected { border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; }
+                .kdna-sc-design-preview-card input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+                .kdna-sc-design-preview-label { display: block; text-align: center; font-weight: 600; font-size: 12px; margin-top: 6px; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
+                .kdna-sc-design-preview-card .kdna-sc-coupon-grid { display: block !important; pointer-events: none; }
+                .kdna-sc-design-preview-card .kdna-sc-coupon-card { pointer-events: none; font-size: 13px; }
+                .kdna-sc-design-preview-card .kdna-sc-coupon-actions { display: none; }
+            </style>
+
             <table class="form-table">
                 <tr>
                     <th><label><?php esc_html_e( 'Background Colour', 'kdna-ecommerce' ); ?></label></th>
-                    <td><input type="text" name="<?php echo esc_attr( $n ); ?>[custom_bg_color]" value="<?php echo esc_attr( $s['custom_bg_color'] ); ?>" class="kdna-color-picker" data-default-color="#39cccc"></td>
+                    <td><input type="text" name="<?php echo esc_attr( $n ); ?>[custom_bg_color]" value="<?php echo esc_attr( $s['custom_bg_color'] ); ?>" class="kdna-color-picker" data-default-color="#39cccc" id="kdna-sc-bg-picker"></td>
                 </tr>
                 <tr>
                     <th><label><?php esc_html_e( 'Foreground / Text Colour', 'kdna-ecommerce' ); ?></label></th>
-                    <td><input type="text" name="<?php echo esc_attr( $n ); ?>[custom_fg_color]" value="<?php echo esc_attr( $s['custom_fg_color'] ); ?>" class="kdna-color-picker" data-default-color="#30050b"></td>
+                    <td><input type="text" name="<?php echo esc_attr( $n ); ?>[custom_fg_color]" value="<?php echo esc_attr( $s['custom_fg_color'] ); ?>" class="kdna-color-picker" data-default-color="#30050b" id="kdna-sc-fg-picker"></td>
                 </tr>
                 <tr>
                     <th><label><?php esc_html_e( 'Accent / Third Colour', 'kdna-ecommerce' ); ?></label></th>
-                    <td><input type="text" name="<?php echo esc_attr( $n ); ?>[custom_third_color]" value="<?php echo esc_attr( $s['custom_third_color'] ); ?>" class="kdna-color-picker" data-default-color="#39cccc"></td>
+                    <td><input type="text" name="<?php echo esc_attr( $n ); ?>[custom_third_color]" value="<?php echo esc_attr( $s['custom_third_color'] ); ?>" class="kdna-color-picker" data-default-color="#39cccc" id="kdna-sc-third-picker"></td>
                 </tr>
                 <tr>
                     <th><label><?php esc_html_e( 'Coupon Style', 'kdna-ecommerce' ); ?></label></th>
                     <td>
+                        <p class="description" style="margin-bottom:12px;"><?php esc_html_e( 'Choose the visual style for coupon cards on the website. Click a preview to select it.', 'kdna-ecommerce' ); ?></p>
+
+                        <div class="kdna-sc-design-previews">
                         <?php
                         $designs = [
                             'basic'     => __( 'Basic', 'kdna-ecommerce' ),
@@ -1440,13 +1458,34 @@ class KDNA_Admin {
                             'minimal'   => __( 'Minimal', 'kdna-ecommerce' ),
                             'bold'      => __( 'Bold', 'kdna-ecommerce' ),
                         ];
-                        foreach ( $designs as $val => $label ) : ?>
-                            <label style="display:inline-block;margin:0 12px 12px 0;">
-                                <input type="radio" name="<?php echo esc_attr( $n ); ?>[coupon_design]" value="<?php echo esc_attr( $val ); ?>" <?php checked( $s['coupon_design'], $val ); ?>>
-                                <?php echo esc_html( $label ); ?>
+                        $preview_bg    = esc_attr( $s['custom_bg_color'] );
+                        $preview_fg    = esc_attr( $s['custom_fg_color'] );
+                        $preview_third = esc_attr( $s['custom_third_color'] );
+                        foreach ( $designs as $val => $label ) :
+                            $is_selected = ( $s['coupon_design'] === $val );
+                        ?>
+                            <label class="kdna-sc-design-preview-card <?php echo $is_selected ? 'selected' : ''; ?>">
+                                <input type="radio" name="<?php echo esc_attr( $n ); ?>[coupon_design]" value="<?php echo esc_attr( $val ); ?>" <?php checked( $is_selected ); ?>>
+                                <div class="kdna-sc-coupon-grid kdna-sc-design-<?php echo esc_attr( $val ); ?>">
+                                    <div class="kdna-sc-coupon-card" style="--kdna-sc-bg:<?php echo $preview_bg; ?>;--kdna-sc-fg:<?php echo $preview_fg; ?>;--kdna-sc-third:<?php echo $preview_third; ?>;">
+                                        <div class="kdna-sc-coupon-amount">
+                                            <span class="kdna-sc-discount">25%</span>
+                                            <span class="kdna-sc-label"><?php esc_html_e( 'OFF', 'kdna-ecommerce' ); ?></span>
+                                        </div>
+                                        <div class="kdna-sc-coupon-details">
+                                            <span class="kdna-sc-code">SAVE25NOW</span>
+                                            <span class="kdna-sc-desc"><?php esc_html_e( 'Get 25% off your next order', 'kdna-ecommerce' ); ?></span>
+                                            <span class="kdna-sc-expiry"><?php printf( esc_html__( 'Expires: %s', 'kdna-ecommerce' ), esc_html( gmdate( 'M j, Y', strtotime( '+30 days' ) ) ) ); ?></span>
+                                        </div>
+                                        <div class="kdna-sc-coupon-actions">
+                                            <button type="button" class="kdna-sc-apply-btn" disabled><?php esc_html_e( 'Apply', 'kdna-ecommerce' ); ?></button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <span class="kdna-sc-design-preview-label"><?php echo esc_html( $label ); ?></span>
                             </label>
                         <?php endforeach; ?>
-                        <p class="description"><?php esc_html_e( 'Choose the visual style for coupon cards on the website.', 'kdna-ecommerce' ); ?></p>
+                        </div>
                     </td>
                 </tr>
                 <tr>
@@ -1458,6 +1497,36 @@ class KDNA_Admin {
                     </td>
                 </tr>
             </table>
+
+            <script>
+            jQuery(function($) {
+                // Design preview selection.
+                $('.kdna-sc-design-preview-card').on('click', function() {
+                    $('.kdna-sc-design-preview-card').removeClass('selected');
+                    $(this).addClass('selected');
+                    $(this).find('input[type="radio"]').prop('checked', true);
+                });
+
+                // Live-update preview colours when colour pickers change.
+                function updatePreviewColours() {
+                    var bg    = $('#kdna-sc-bg-picker').val() || '#39cccc';
+                    var fg    = $('#kdna-sc-fg-picker').val() || '#30050b';
+                    var third = $('#kdna-sc-third-picker').val() || '#39cccc';
+                    $('.kdna-sc-design-previews .kdna-sc-coupon-card').css({
+                        '--kdna-sc-bg': bg,
+                        '--kdna-sc-fg': fg,
+                        '--kdna-sc-third': third
+                    });
+                    // For designs that use bg directly on card:
+                    $('.kdna-sc-design-previews .kdna-sc-coupon-card').each(function() {
+                        this.style.setProperty('--kdna-sc-bg', bg);
+                        this.style.setProperty('--kdna-sc-fg', fg);
+                        this.style.setProperty('--kdna-sc-third', third);
+                    });
+                }
+                $(document).on('irischange', '#kdna-sc-bg-picker, #kdna-sc-fg-picker, #kdna-sc-third-picker', updatePreviewColours);
+            });
+            </script>
 
         <?php // ===================== DISPLAY COUPONS ===================== ?>
         <?php elseif ( $sub === 'display' ) : ?>

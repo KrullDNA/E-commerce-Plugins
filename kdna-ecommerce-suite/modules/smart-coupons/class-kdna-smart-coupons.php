@@ -26,6 +26,16 @@ class KDNA_Smart_Coupons {
     const META_COUPON_MESSAGE          = '_kdna_sc_coupon_message';
     const META_EMAIL_MESSAGE           = '_kdna_sc_email_message';
     const META_EXPIRY_TIME             = '_kdna_sc_expiry_time';
+    const META_APPLY_DISCOUNT_ON       = '_kdna_sc_apply_discount_on';
+
+    // ----- Actions tab meta keys -----
+    const META_ACTION_ADD_PRODUCTS     = '_kdna_sc_action_add_products';
+    const META_ACTION_ADD_QUANTITY     = '_kdna_sc_action_add_quantity';
+    const META_ACTION_USER_CAN_CHOOSE  = '_kdna_sc_action_user_can_choose';
+    const META_ACTION_DISCOUNT_AMOUNT  = '_kdna_sc_action_discount_amount';
+    const META_ACTION_DISCOUNT_TYPE    = '_kdna_sc_action_discount_type';
+    const META_ACTION_MESSAGE          = '_kdna_sc_action_message';
+    const META_ACTION_INCLUDE_IN_EMAIL = '_kdna_sc_action_include_in_email';
 
     // ----- Post-meta keys for products -----
     const META_PRODUCT_COUPONS         = '_kdna_sc_coupon_titles';
@@ -74,6 +84,21 @@ class KDNA_Smart_Coupons {
         add_filter( 'woocommerce_coupon_data_tabs', [ $this, 'add_coupon_data_tabs' ] );
         add_action( 'woocommerce_coupon_data_panels', [ $this, 'render_coupon_data_panels' ], 10, 2 );
         add_action( 'woocommerce_coupon_options_save', [ $this, 'save_coupon_fields' ], 10, 2 );
+
+        // ---- WooCommerce Coupons area: Bulk Generate, Import, Send Store Credit ----
+        add_action( 'admin_menu', [ $this, 'add_coupon_admin_pages' ] );
+        add_action( 'admin_init', [ $this, 'handle_bulk_generate' ] );
+        add_action( 'admin_init', [ $this, 'handle_import_coupons' ] );
+        add_action( 'admin_init', [ $this, 'handle_send_store_credit' ] );
+
+        // ---- Coupon categories taxonomy ----
+        add_action( 'init', [ $this, 'register_coupon_category_taxonomy' ] );
+
+        // ---- Execute coupon actions (add products to cart) ----
+        add_action( 'woocommerce_applied_coupon', [ $this, 'execute_coupon_actions' ] );
+
+        // ---- Sample CSV download ----
+        add_action( 'wp_ajax_kdna_sc_sample_csv', [ __CLASS__, 'ajax_sample_csv' ] );
 
         // ---- Product fields (attach coupon to product) ----
         add_action( 'woocommerce_product_options_general_product_data', [ $this, 'add_product_coupon_fields' ] );
@@ -348,152 +373,185 @@ class KDNA_Smart_Coupons {
     // =========================================================================
 
     public function add_coupon_general_fields( $coupon_id, $coupon ) {
-        echo '<div class="options_group">';
-        echo '<h4 style="padding-left:12px;">' . esc_html__( 'Smart Coupons', 'kdna-ecommerce' ) . '</h4>';
+        // Smart Coupons fields injected into the WooCommerce General tab (green-highlighted in original plugin).
+        echo '<div class="options_group" style="background:#f0fff0;border-top:1px solid #e0e0e0;">';
+
+        woocommerce_wp_text_input( [
+            'id'                => self::META_EXPIRY_TIME,
+            'label'             => __( 'Coupon expiry time', 'kdna-ecommerce' ),
+            'placeholder'       => 'HH:MM',
+            'description'       => __( 'Expiry time for this coupon. If not set, the coupon expires at the end of the expiry date.', 'kdna-ecommerce' ),
+            'desc_tip'          => true,
+            'type'              => 'time',
+            'value'             => get_post_meta( $coupon_id, self::META_EXPIRY_TIME, true ),
+        ] );
 
         woocommerce_wp_checkbox( [
             'id'          => self::META_AUTO_APPLY,
-            'label'       => __( 'Auto-apply coupon', 'kdna-ecommerce' ),
-            'description' => __( 'Automatically apply this coupon when conditions are met.', 'kdna-ecommerce' ),
+            'label'       => __( 'Auto apply?', 'kdna-ecommerce' ),
+            'description' => __( 'When checked, and applicable, this discount will apply automatically to the cart / order - without customer needing to know / use the coupon. Auto Apply is an excellent way to setup discount rules. Keep in mind that, at most 5 coupons / discounts will be auto applied on a cart / order.', 'kdna-ecommerce' ),
             'value'       => get_post_meta( $coupon_id, self::META_AUTO_APPLY, true ),
             'cbvalue'     => 'yes',
         ] );
 
         woocommerce_wp_checkbox( [
+            'id'          => self::META_RESTRICT_NEW_USER,
+            'label'       => __( 'For new customers?', 'kdna-ecommerce' ),
+            'description' => __( "When checked, this coupon can be used only in a customer's very first order.", 'kdna-ecommerce' ),
+            'value'       => get_post_meta( $coupon_id, self::META_RESTRICT_NEW_USER, true ),
+            'cbvalue'     => 'yes',
+        ] );
+
+        woocommerce_wp_checkbox( [
             'id'          => self::META_IS_VISIBLE_STOREWIDE,
-            'label'       => __( 'Show on cart/checkout', 'kdna-ecommerce' ),
-            'description' => __( 'Display this coupon to all eligible customers on cart and checkout.', 'kdna-ecommerce' ),
+            'label'       => __( 'Show to everyone?', 'kdna-ecommerce' ),
+            'description' => __( 'When checked, this coupon will be included for display on cart / checkout / My Account pages - for all eligible customers.', 'kdna-ecommerce' ),
             'value'       => get_post_meta( $coupon_id, self::META_IS_VISIBLE_STOREWIDE, true ),
             'cbvalue'     => 'yes',
         ] );
 
-        woocommerce_wp_text_input( [
-            'id'          => self::META_MAX_DISCOUNT,
-            'label'       => __( 'Max discount', 'kdna-ecommerce' ),
-            'description' => __( 'Maximum discount this coupon can give (for percentage coupons). Leave empty for no limit.', 'kdna-ecommerce' ),
-            'desc_tip'    => true,
-            'type'        => 'number',
-            'custom_attributes' => [ 'step' => 'any', 'min' => '0' ],
+        woocommerce_wp_checkbox( [
+            'id'          => self::META_AUTO_GENERATE,
+            'label'       => __( 'Auto generate?', 'kdna-ecommerce' ),
+            'description' => __( 'When checked, and when this coupon is linked to a product, and when someone places an order containing such product: generates a copy of this coupon with all the settings, assigns a new coupon code and issues that newly generated coupon to the customer, to use in future order/s.', 'kdna-ecommerce' ),
+            'value'       => get_post_meta( $coupon_id, self::META_AUTO_GENERATE, true ),
+            'cbvalue'     => 'yes',
         ] );
 
-        woocommerce_wp_text_input( [
-            'id'          => self::META_EXPIRY_TIME,
-            'label'       => __( 'Expiry time (hours)', 'kdna-ecommerce' ),
-            'description' => __( 'Additional expiry time in hours beyond the expiry date. Leave empty for end of day.', 'kdna-ecommerce' ),
+        // Optional coupon code format: Prefix + auto_generated coupon_code + Suffix.
+        $prefix = get_post_meta( $coupon_id, self::META_COUPON_PREFIX, true );
+        $suffix = get_post_meta( $coupon_id, self::META_COUPON_SUFFIX, true );
+        ?>
+        <p class="form-field" style="background:#f0fff0;">
+            <label><?php esc_html_e( 'Optional coupon code format', 'kdna-ecommerce' ); ?></label>
+            <span style="display:inline-flex;align-items:center;gap:6px;">
+                <input type="text" name="<?php echo esc_attr( self::META_COUPON_PREFIX ); ?>" value="<?php echo esc_attr( $prefix ); ?>" placeholder="<?php esc_attr_e( 'Prefix', 'kdna-ecommerce' ); ?>" style="width:100px;">
+                <code style="padding:4px 8px;background:#e8e8e8;border-radius:3px;"><?php esc_html_e( 'auto generated', 'kdna-ecommerce' ); ?> <strong>coupon_code</strong></code>
+                <input type="text" name="<?php echo esc_attr( self::META_COUPON_SUFFIX ); ?>" value="<?php echo esc_attr( $suffix ); ?>" placeholder="<?php esc_attr_e( 'Suffix', 'kdna-ecommerce' ); ?>" style="width:100px;">
+            </span>
+            <span class="description" style="display:block;margin-top:4px;padding-left:0;"><?php esc_html_e( '(prefix or suffix with up to three letters work best)', 'kdna-ecommerce' ); ?></span>
+        </p>
+        <?php
+        // Expire X Days/Weeks/Months after issuance.
+        $validity      = get_post_meta( $coupon_id, self::META_COUPON_VALIDITY, true );
+        $validity_unit = get_post_meta( $coupon_id, self::META_VALIDITY_UNIT, true ) ?: 'days';
+        ?>
+        <p class="form-field" style="background:#f0fff0;">
+            <label><?php esc_html_e( 'Expire', 'kdna-ecommerce' ); ?></label>
+            <span style="display:inline-flex;align-items:center;gap:6px;">
+                <input type="number" name="<?php echo esc_attr( self::META_COUPON_VALIDITY ); ?>" value="<?php echo esc_attr( $validity ); ?>" min="0" style="width:70px;">
+                <select name="<?php echo esc_attr( self::META_VALIDITY_UNIT ); ?>">
+                    <option value="days" <?php selected( $validity_unit, 'days' ); ?>><?php esc_html_e( 'Days', 'kdna-ecommerce' ); ?></option>
+                    <option value="weeks" <?php selected( $validity_unit, 'weeks' ); ?>><?php esc_html_e( 'Weeks', 'kdna-ecommerce' ); ?></option>
+                    <option value="months" <?php selected( $validity_unit, 'months' ); ?>><?php esc_html_e( 'Months', 'kdna-ecommerce' ); ?></option>
+                    <option value="years" <?php selected( $validity_unit, 'years' ); ?>><?php esc_html_e( 'Years', 'kdna-ecommerce' ); ?></option>
+                </select>
+                <span><?php esc_html_e( 'after issuance - instead of a fixed expiry date, and at "Expiry time" if set. (Only used for auto-generated coupons)', 'kdna-ecommerce' ); ?></span>
+            </span>
+        </p>
+        <?php
+
+        woocommerce_wp_select( [
+            'id'          => self::META_APPLY_DISCOUNT_ON,
+            'label'       => __( 'Apply discount on', 'kdna-ecommerce' ),
+            'value'       => get_post_meta( $coupon_id, self::META_APPLY_DISCOUNT_ON, true ) ?: 'all_qualifying',
+            'options'     => [
+                'all_qualifying'    => __( 'All qualifying products', 'kdna-ecommerce' ),
+                'cheapest_item'     => __( 'Cheapest qualifying product', 'kdna-ecommerce' ),
+                'most_expensive'    => __( 'Most expensive qualifying product', 'kdna-ecommerce' ),
+            ],
+            'description' => __( 'Which product(s) should this coupon apply its discount to.', 'kdna-ecommerce' ),
             'desc_tip'    => true,
-            'type'        => 'number',
-            'custom_attributes' => [ 'step' => '1', 'min' => '0', 'max' => '23' ],
+            'style'       => 'background:#f0fff0;',
         ] );
 
         echo '</div>';
     }
 
     public function add_coupon_restriction_fields( $coupon_id, $coupon ) {
-        echo '<div class="options_group">';
-        woocommerce_wp_checkbox( [
-            'id'          => self::META_RESTRICT_NEW_USER,
-            'label'       => __( 'First order only', 'kdna-ecommerce' ),
-            'description' => __( 'Restrict this coupon to the customer\'s first order.', 'kdna-ecommerce' ),
-            'value'       => get_post_meta( $coupon_id, self::META_RESTRICT_NEW_USER, true ),
-            'cbvalue'     => 'yes',
-        ] );
-        echo '</div>';
+        // No additional restriction fields needed here - "For new customers?" is now on the General tab.
     }
 
     public function add_coupon_data_tabs( $tabs ) {
-        $tabs['kdna_smart_coupon'] = [
-            'label'  => __( 'Smart Coupon', 'kdna-ecommerce' ),
-            'target' => 'kdna_smart_coupon_data',
+        $tabs['kdna_actions'] = [
+            'label'  => __( 'Actions', 'kdna-ecommerce' ),
+            'target' => 'kdna_actions_data',
             'class'  => '',
         ];
         return $tabs;
     }
 
     public function render_coupon_data_panels( $coupon_id, $coupon ) {
+        $action_products   = get_post_meta( $coupon_id, self::META_ACTION_ADD_PRODUCTS, true );
+        $action_qty        = get_post_meta( $coupon_id, self::META_ACTION_ADD_QUANTITY, true ) ?: '1';
+        $action_choose     = get_post_meta( $coupon_id, self::META_ACTION_USER_CAN_CHOOSE, true );
+        $action_disc_amt   = get_post_meta( $coupon_id, self::META_ACTION_DISCOUNT_AMOUNT, true ) ?: '0.00';
+        $action_disc_type  = get_post_meta( $coupon_id, self::META_ACTION_DISCOUNT_TYPE, true ) ?: 'percent';
+        $action_message    = get_post_meta( $coupon_id, self::META_ACTION_MESSAGE, true );
+        $action_in_email   = get_post_meta( $coupon_id, self::META_ACTION_INCLUDE_IN_EMAIL, true );
         ?>
-        <div id="kdna_smart_coupon_data" class="panel woocommerce_options_panel">
+        <div id="kdna_actions_data" class="panel woocommerce_options_panel" style="background:#f0fff0;">
 
             <div class="options_group">
-                <h4 style="padding-left:12px;"><?php esc_html_e( 'Auto-Generate Coupon on Purchase', 'kdna-ecommerce' ); ?></h4>
-                <?php
-                woocommerce_wp_checkbox( [
-                    'id'          => self::META_AUTO_GENERATE,
-                    'label'       => __( 'Auto-generate coupon', 'kdna-ecommerce' ),
-                    'description' => __( 'Generate a copy of this coupon when the product is ordered.', 'kdna-ecommerce' ),
-                    'value'       => get_post_meta( $coupon_id, self::META_AUTO_GENERATE, true ),
-                    'cbvalue'     => 'yes',
-                ] );
-
-                woocommerce_wp_checkbox( [
-                    'id'          => self::META_PICK_PRICE_OF_PRODUCT,
-                    'label'       => __( 'Coupon value = product price', 'kdna-ecommerce' ),
-                    'description' => __( 'Generated coupon amount matches the purchased product price.', 'kdna-ecommerce' ),
-                    'value'       => get_post_meta( $coupon_id, self::META_PICK_PRICE_OF_PRODUCT, true ),
-                    'cbvalue'     => 'yes',
-                ] );
-
-                woocommerce_wp_text_input( [
-                    'id'          => self::META_COUPON_PREFIX,
-                    'label'       => __( 'Coupon code prefix', 'kdna-ecommerce' ),
-                    'description' => __( 'Prefix for auto-generated coupon codes.', 'kdna-ecommerce' ),
-                    'desc_tip'    => true,
-                ] );
-
-                woocommerce_wp_text_input( [
-                    'id'          => self::META_COUPON_SUFFIX,
-                    'label'       => __( 'Coupon code suffix', 'kdna-ecommerce' ),
-                    'description' => __( 'Suffix for auto-generated coupon codes.', 'kdna-ecommerce' ),
-                    'desc_tip'    => true,
-                ] );
-
-                woocommerce_wp_text_input( [
-                    'id'          => self::META_COUPON_VALIDITY,
-                    'label'       => __( 'Validity period', 'kdna-ecommerce' ),
-                    'description' => __( 'Duration before the generated coupon expires.', 'kdna-ecommerce' ),
-                    'desc_tip'    => true,
-                    'type'        => 'number',
-                    'custom_attributes' => [ 'min' => '0' ],
-                ] );
-
-                woocommerce_wp_select( [
-                    'id'      => self::META_VALIDITY_UNIT,
-                    'label'   => __( 'Validity unit', 'kdna-ecommerce' ),
-                    'options' => [
-                        'days'   => __( 'Days', 'kdna-ecommerce' ),
-                        'weeks'  => __( 'Weeks', 'kdna-ecommerce' ),
-                        'months' => __( 'Months', 'kdna-ecommerce' ),
-                        'years'  => __( 'Years', 'kdna-ecommerce' ),
-                    ],
-                ] );
-
-                woocommerce_wp_checkbox( [
-                    'id'          => self::META_DISABLE_EMAIL_RESTRICT,
-                    'label'       => __( 'No email restriction', 'kdna-ecommerce' ),
-                    'description' => __( 'Don\'t add email restriction to the generated coupon.', 'kdna-ecommerce' ),
-                    'value'       => get_post_meta( $coupon_id, self::META_DISABLE_EMAIL_RESTRICT, true ),
-                    'cbvalue'     => 'yes',
-                ] );
-                ?>
+                <p style="padding:12px;font-weight:600;font-size:13px;margin:0;border-bottom:1px solid #e0e0e0;">
+                    <?php esc_html_e( 'After applying the coupon, do these also...', 'kdna-ecommerce' ); ?>
+                </p>
             </div>
 
             <div class="options_group">
-                <h4 style="padding-left:12px;"><?php esc_html_e( 'Coupon Message', 'kdna-ecommerce' ); ?></h4>
-                <?php
-                woocommerce_wp_textarea_input( [
-                    'id'          => self::META_COUPON_MESSAGE,
-                    'label'       => __( 'Custom message', 'kdna-ecommerce' ),
-                    'description' => __( 'Message displayed alongside the coupon. HTML allowed.', 'kdna-ecommerce' ),
-                    'desc_tip'    => true,
-                ] );
+                <p class="form-field">
+                    <label for="kdna_sc_action_products"><?php esc_html_e( 'Add products to cart', 'kdna-ecommerce' ); ?></label>
+                    <select class="wc-product-search" multiple="multiple" style="width:50%;" id="kdna_sc_action_products" name="<?php echo esc_attr( self::META_ACTION_ADD_PRODUCTS ); ?>[]" data-placeholder="<?php esc_attr_e( 'Search for a product&hellip;', 'kdna-ecommerce' ); ?>" data-action="woocommerce_json_search_products_and_variations">
+                        <?php
+                        if ( ! empty( $action_products ) ) {
+                            $product_ids = is_array( $action_products ) ? $action_products : explode( ',', $action_products );
+                            foreach ( $product_ids as $product_id ) {
+                                $product = wc_get_product( $product_id );
+                                if ( $product ) {
+                                    echo '<option value="' . esc_attr( $product_id ) . '" selected="selected">' . esc_html( wp_strip_all_tags( $product->get_formatted_name() ) ) . '</option>';
+                                }
+                            }
+                        }
+                        ?>
+                    </select>
+                    <?php echo wc_help_tip( __( 'Products to automatically add to the cart when this coupon is applied.', 'kdna-ecommerce' ) ); ?>
+                </p>
 
-                woocommerce_wp_checkbox( [
-                    'id'          => self::META_EMAIL_MESSAGE,
-                    'label'       => __( 'Include in email', 'kdna-ecommerce' ),
-                    'description' => __( 'Include the custom message in the order confirmation email.', 'kdna-ecommerce' ),
-                    'value'       => get_post_meta( $coupon_id, self::META_EMAIL_MESSAGE, true ),
-                    'cbvalue'     => 'yes',
-                ] );
-                ?>
+                <p class="form-field">
+                    <label for="kdna_sc_action_qty"><?php esc_html_e( 'each with quantity', 'kdna-ecommerce' ); ?></label>
+                    <input type="number" id="kdna_sc_action_qty" name="<?php echo esc_attr( self::META_ACTION_ADD_QUANTITY ); ?>" value="<?php echo esc_attr( $action_qty ); ?>" min="1" style="width:70px;">
+                    <?php echo wc_help_tip( __( 'How many of each product to add to the cart.', 'kdna-ecommerce' ) ); ?>
+                </p>
+
+                <p class="form-field">
+                    <label for="kdna_sc_action_choose"><?php esc_html_e( 'users can choose only one', 'kdna-ecommerce' ); ?></label>
+                    <input type="checkbox" id="kdna_sc_action_choose" name="<?php echo esc_attr( self::META_ACTION_USER_CAN_CHOOSE ); ?>" value="yes" <?php checked( $action_choose, 'yes' ); ?>>
+                    <span class="description"><?php esc_html_e( 'Allow users to choose when multiples are added on the above.', 'kdna-ecommerce' ); ?></span>
+                </p>
+
+                <p class="form-field">
+                    <label for="kdna_sc_action_disc"><?php esc_html_e( 'with discount of', 'kdna-ecommerce' ); ?></label>
+                    <input type="number" id="kdna_sc_action_disc" name="<?php echo esc_attr( self::META_ACTION_DISCOUNT_AMOUNT ); ?>" value="<?php echo esc_attr( $action_disc_amt ); ?>" min="0" step="0.01" style="width:90px;">
+                    <select name="<?php echo esc_attr( self::META_ACTION_DISCOUNT_TYPE ); ?>" style="width:auto;">
+                        <option value="percent" <?php selected( $action_disc_type, 'percent' ); ?>>%</option>
+                        <option value="fixed" <?php selected( $action_disc_type, 'fixed' ); ?>><?php echo esc_html( get_woocommerce_currency_symbol() ); ?></option>
+                    </select>
+                    <?php echo wc_help_tip( __( 'Discount to apply on the products added to cart by this action.', 'kdna-ecommerce' ) ); ?>
+                </p>
+            </div>
+
+            <div class="options_group">
+                <p class="form-field">
+                    <label for="kdna_sc_action_message"><?php esc_html_e( 'Display a message to user', 'kdna-ecommerce' ); ?></label>
+                    <textarea id="kdna_sc_action_message" name="<?php echo esc_attr( self::META_ACTION_MESSAGE ); ?>" rows="6" style="width:50%;"><?php echo esc_textarea( $action_message ); ?></textarea>
+                    <?php echo wc_help_tip( __( 'Message displayed to the customer when this coupon is applied. HTML allowed.', 'kdna-ecommerce' ) ); ?>
+                </p>
+
+                <p class="form-field">
+                    <label for="kdna_sc_action_in_email"><?php esc_html_e( 'Include in email?', 'kdna-ecommerce' ); ?></label>
+                    <input type="checkbox" id="kdna_sc_action_in_email" name="<?php echo esc_attr( self::META_ACTION_INCLUDE_IN_EMAIL ); ?>" value="yes" <?php checked( $action_in_email, 'yes' ); ?>>
+                    <span class="description"><?php esc_html_e( 'Check this box to include this message in order confirmation email.', 'kdna-ecommerce' ); ?></span>
+                </p>
             </div>
 
         </div>
@@ -501,6 +559,7 @@ class KDNA_Smart_Coupons {
     }
 
     public function save_coupon_fields( $coupon_id, $coupon ) {
+        // General tab checkboxes.
         $checkboxes = [
             self::META_AUTO_APPLY,
             self::META_IS_VISIBLE_STOREWIDE,
@@ -509,11 +568,14 @@ class KDNA_Smart_Coupons {
             self::META_DISABLE_EMAIL_RESTRICT,
             self::META_RESTRICT_NEW_USER,
             self::META_EMAIL_MESSAGE,
+            self::META_ACTION_USER_CAN_CHOOSE,
+            self::META_ACTION_INCLUDE_IN_EMAIL,
         ];
         foreach ( $checkboxes as $key ) {
             update_post_meta( $coupon_id, $key, isset( $_POST[ $key ] ) ? 'yes' : 'no' );
         }
 
+        // Text / select fields.
         $text_fields = [
             self::META_COUPON_PREFIX,
             self::META_COUPON_SUFFIX,
@@ -521,6 +583,10 @@ class KDNA_Smart_Coupons {
             self::META_VALIDITY_UNIT,
             self::META_MAX_DISCOUNT,
             self::META_EXPIRY_TIME,
+            self::META_APPLY_DISCOUNT_ON,
+            self::META_ACTION_ADD_QUANTITY,
+            self::META_ACTION_DISCOUNT_AMOUNT,
+            self::META_ACTION_DISCOUNT_TYPE,
         ];
         foreach ( $text_fields as $key ) {
             if ( isset( $_POST[ $key ] ) ) {
@@ -528,8 +594,621 @@ class KDNA_Smart_Coupons {
             }
         }
 
+        // Textarea fields.
         if ( isset( $_POST[ self::META_COUPON_MESSAGE ] ) ) {
             update_post_meta( $coupon_id, self::META_COUPON_MESSAGE, wp_kses_post( wp_unslash( $_POST[ self::META_COUPON_MESSAGE ] ) ) );
+        }
+        if ( isset( $_POST[ self::META_ACTION_MESSAGE ] ) ) {
+            update_post_meta( $coupon_id, self::META_ACTION_MESSAGE, wp_kses_post( wp_unslash( $_POST[ self::META_ACTION_MESSAGE ] ) ) );
+        }
+
+        // Action products (array of IDs).
+        if ( isset( $_POST[ self::META_ACTION_ADD_PRODUCTS ] ) ) {
+            $product_ids = array_map( 'absint', (array) $_POST[ self::META_ACTION_ADD_PRODUCTS ] );
+            update_post_meta( $coupon_id, self::META_ACTION_ADD_PRODUCTS, array_filter( $product_ids ) );
+        } else {
+            delete_post_meta( $coupon_id, self::META_ACTION_ADD_PRODUCTS );
+        }
+    }
+
+    // =========================================================================
+    // Coupon Categories Taxonomy
+    // =========================================================================
+
+    public function register_coupon_category_taxonomy() {
+        register_taxonomy( 'coupon_category', 'shop_coupon', [
+            'labels' => [
+                'name'              => __( 'Coupon categories', 'kdna-ecommerce' ),
+                'singular_name'     => __( 'Coupon category', 'kdna-ecommerce' ),
+                'search_items'      => __( 'Search coupon categories', 'kdna-ecommerce' ),
+                'all_items'         => __( 'All coupon categories', 'kdna-ecommerce' ),
+                'edit_item'         => __( 'Edit coupon category', 'kdna-ecommerce' ),
+                'update_item'       => __( 'Update coupon category', 'kdna-ecommerce' ),
+                'add_new_item'      => __( 'Add new coupon category', 'kdna-ecommerce' ),
+                'new_item_name'     => __( 'New coupon category name', 'kdna-ecommerce' ),
+                'menu_name'         => __( 'Coupon categories', 'kdna-ecommerce' ),
+                'manage_items'      => __( 'Manage coupon categories', 'kdna-ecommerce' ),
+            ],
+            'hierarchical' => true,
+            'show_ui'      => true,
+            'show_in_menu' => false,
+            'show_in_rest' => true,
+            'query_var'    => true,
+            'rewrite'      => false,
+        ] );
+    }
+
+    // =========================================================================
+    // WooCommerce Coupons Area — Admin Pages
+    // =========================================================================
+
+    public function add_coupon_admin_pages() {
+        // Add sub-pages under WooCommerce > Coupons (edit.php?post_type=shop_coupon).
+        add_submenu_page(
+            'edit.php?post_type=shop_coupon',
+            __( 'Bulk Generate', 'kdna-ecommerce' ),
+            __( 'Bulk Generate', 'kdna-ecommerce' ),
+            'manage_woocommerce',
+            'kdna-sc-bulk-generate',
+            [ $this, 'render_bulk_generate_page' ]
+        );
+
+        add_submenu_page(
+            'edit.php?post_type=shop_coupon',
+            __( 'Import Coupons', 'kdna-ecommerce' ),
+            __( 'Import Coupons', 'kdna-ecommerce' ),
+            'manage_woocommerce',
+            'kdna-sc-import-coupons',
+            [ $this, 'render_import_coupons_page' ]
+        );
+
+        add_submenu_page(
+            'edit.php?post_type=shop_coupon',
+            __( 'Send Store Credit', 'kdna-ecommerce' ),
+            __( 'Send Store Credit', 'kdna-ecommerce' ),
+            'manage_woocommerce',
+            'kdna-sc-send-credit',
+            [ $this, 'render_send_credit_page' ]
+        );
+    }
+
+    private function render_coupon_tabs_nav( $current = 'coupons' ) {
+        $tabs = [
+            'coupons'         => [ 'label' => __( 'Coupons', 'kdna-ecommerce' ),         'url' => admin_url( 'edit.php?post_type=shop_coupon' ) ],
+            'bulk-generate'   => [ 'label' => __( 'Bulk Generate', 'kdna-ecommerce' ),   'url' => admin_url( 'edit.php?post_type=shop_coupon&page=kdna-sc-bulk-generate' ) ],
+            'import-coupons'  => [ 'label' => __( 'Import Coupons', 'kdna-ecommerce' ),  'url' => admin_url( 'edit.php?post_type=shop_coupon&page=kdna-sc-import-coupons' ) ],
+            'send-credit'     => [ 'label' => __( 'Send Store Credit', 'kdna-ecommerce' ), 'url' => admin_url( 'edit.php?post_type=shop_coupon&page=kdna-sc-send-credit' ) ],
+        ];
+        echo '<nav class="nav-tab-wrapper woo-nav-tab-wrapper" style="margin-bottom:20px;">';
+        foreach ( $tabs as $key => $tab ) {
+            $active = ( $key === $current ) ? ' nav-tab-active' : '';
+            echo '<a href="' . esc_url( $tab['url'] ) . '" class="nav-tab' . $active . '">' . esc_html( $tab['label'] ) . '</a>';
+        }
+        echo '</nav>';
+    }
+
+    // ---- Bulk Generate Page ----
+
+    public function render_bulk_generate_page() {
+        $s = self::get_settings();
+        ?>
+        <div class="wrap">
+            <?php $this->render_coupon_tabs_nav( 'bulk-generate' ); ?>
+
+            <p><?php esc_html_e( 'Need a lot of coupons? You can easily do that with Smart Coupons.', 'kdna-ecommerce' ); ?></p>
+
+            <?php if ( ! empty( $_GET['kdna_sc_generated'] ) ) : ?>
+                <div class="notice notice-success"><p><?php printf( esc_html__( '%d coupons generated successfully!', 'kdna-ecommerce' ), absint( $_GET['kdna_sc_generated'] ) ); ?></p></div>
+            <?php endif; ?>
+
+            <form method="post" action="">
+                <?php wp_nonce_field( 'kdna_sc_bulk_generate', 'kdna_sc_bulk_nonce' ); ?>
+
+                <div class="postbox" style="max-width:800px;">
+                    <div class="postbox-header"><h2 style="padding:12px;"><?php esc_html_e( 'Action', 'kdna-ecommerce' ); ?></h2></div>
+                    <div class="inside">
+                        <table class="form-table">
+                            <tr>
+                                <th><label for="kdna_sc_bulk_count"><?php esc_html_e( 'Number of coupons to generate', 'kdna-ecommerce' ); ?> <span style="color:red;">*</span></label></th>
+                                <td><input type="number" id="kdna_sc_bulk_count" name="kdna_sc_bulk_count" value="10" min="1" max="5000" class="small-text" required></td>
+                            </tr>
+                            <tr>
+                                <th><label><?php esc_html_e( 'Generate coupons and', 'kdna-ecommerce' ); ?></label></th>
+                                <td>
+                                    <label style="display:block;margin-bottom:8px;"><input type="radio" name="kdna_sc_bulk_action" value="store" checked> <?php esc_html_e( 'Add to store', 'kdna-ecommerce' ); ?></label>
+                                    <label style="display:block;margin-bottom:8px;"><input type="radio" name="kdna_sc_bulk_action" value="csv"> <?php esc_html_e( 'Export to CSV', 'kdna-ecommerce' ); ?> <span class="description">(<?php esc_html_e( 'Does not add to store, but creates a .csv file, that you can import later', 'kdna-ecommerce' ); ?>)</span></label>
+                                    <label style="display:block;"><input type="radio" name="kdna_sc_bulk_action" value="email"> <?php esc_html_e( 'Email to recipients', 'kdna-ecommerce' ); ?> <span class="description">(<?php esc_html_e( 'Add to store and email generated coupons to recipients', 'kdna-ecommerce' ); ?>)</span></label>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="postbox" style="max-width:800px;">
+                    <div class="postbox-header"><h2 style="padding:12px;"><?php esc_html_e( 'Coupon Description', 'kdna-ecommerce' ); ?> <span class="description">(<?php esc_html_e( 'This will add the same coupon description in all the bulk generated coupons', 'kdna-ecommerce' ); ?>)</span></h2></div>
+                    <div class="inside">
+                        <textarea name="kdna_sc_bulk_description" rows="3" style="width:100%;" placeholder="<?php esc_attr_e( 'Description (optional)', 'kdna-ecommerce' ); ?>"></textarea>
+                    </div>
+                </div>
+
+                <div class="postbox" style="max-width:800px;">
+                    <div class="postbox-header"><h2 style="padding:12px;"><?php esc_html_e( 'Coupon Data', 'kdna-ecommerce' ); ?></h2></div>
+                    <div class="inside">
+                        <table class="form-table">
+                            <tr>
+                                <th><label><?php esc_html_e( 'Discount type', 'kdna-ecommerce' ); ?></label></th>
+                                <td>
+                                    <select name="kdna_sc_bulk_discount_type" style="min-width:200px;">
+                                        <option value="percent"><?php esc_html_e( 'Percentage discount', 'kdna-ecommerce' ); ?></option>
+                                        <option value="fixed_cart"><?php esc_html_e( 'Fixed cart discount', 'kdna-ecommerce' ); ?></option>
+                                        <option value="fixed_product"><?php esc_html_e( 'Fixed product discount', 'kdna-ecommerce' ); ?></option>
+                                        <option value="store_credit"><?php echo esc_html( ( $s['credit_label_singular'] ?: 'Store Credit' ) . ' / Gift Certificate' ); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label><?php esc_html_e( 'Coupon amount', 'kdna-ecommerce' ); ?></label></th>
+                                <td><input type="number" name="kdna_sc_bulk_amount" value="0" min="0" step="any" class="small-text"></td>
+                            </tr>
+                            <tr>
+                                <th><label><?php esc_html_e( 'Allow free shipping', 'kdna-ecommerce' ); ?></label></th>
+                                <td><label><input type="checkbox" name="kdna_sc_bulk_free_shipping" value="yes"> <?php esc_html_e( 'Tick this box if the coupon grants free shipping.', 'kdna-ecommerce' ); ?></label></td>
+                            </tr>
+                            <tr>
+                                <th><label><?php esc_html_e( 'Coupon expiry date', 'kdna-ecommerce' ); ?></label></th>
+                                <td><input type="date" name="kdna_sc_bulk_expiry_date" placeholder="YYYY-MM-DD"></td>
+                            </tr>
+                            <tr style="background:#f0fff0;">
+                                <th><label><?php esc_html_e( 'Coupon expiry time', 'kdna-ecommerce' ); ?></label></th>
+                                <td><input type="time" name="kdna_sc_bulk_expiry_time" placeholder="HH:MM"></td>
+                            </tr>
+                            <tr style="background:#f0fff0;">
+                                <th><label><?php esc_html_e( 'For new customers?', 'kdna-ecommerce' ); ?></label></th>
+                                <td><label><input type="checkbox" name="kdna_sc_bulk_new_customers" value="yes"> <?php esc_html_e( "When checked, this coupon can be used only in a customer's very first order.", 'kdna-ecommerce' ); ?></label></td>
+                            </tr>
+                            <tr style="background:#f0fff0;">
+                                <th><label><?php esc_html_e( 'Optional coupon code format', 'kdna-ecommerce' ); ?></label></th>
+                                <td>
+                                    <span style="display:inline-flex;align-items:center;gap:6px;">
+                                        <input type="text" name="kdna_sc_bulk_prefix" placeholder="<?php esc_attr_e( 'Prefix', 'kdna-ecommerce' ); ?>" style="width:100px;">
+                                        <code style="padding:4px 8px;background:#e8e8e8;border-radius:3px;"><?php esc_html_e( 'auto generated', 'kdna-ecommerce' ); ?> <strong>coupon_code</strong></code>
+                                        <input type="text" name="kdna_sc_bulk_suffix" placeholder="<?php esc_attr_e( 'Suffix', 'kdna-ecommerce' ); ?>" style="width:100px;">
+                                    </span>
+                                    <p class="description"><?php esc_html_e( '(prefix or suffix with up to three letters work best)', 'kdna-ecommerce' ); ?></p>
+                                </td>
+                            </tr>
+                            <tr style="background:#f0fff0;">
+                                <th><label><?php esc_html_e( 'Expire', 'kdna-ecommerce' ); ?></label></th>
+                                <td>
+                                    <span style="display:inline-flex;align-items:center;gap:6px;">
+                                        <input type="number" name="kdna_sc_bulk_validity" value="0" min="0" style="width:70px;">
+                                        <select name="kdna_sc_bulk_validity_unit">
+                                            <option value="days"><?php esc_html_e( 'Days', 'kdna-ecommerce' ); ?></option>
+                                            <option value="weeks"><?php esc_html_e( 'Weeks', 'kdna-ecommerce' ); ?></option>
+                                            <option value="months"><?php esc_html_e( 'Months', 'kdna-ecommerce' ); ?></option>
+                                        </select>
+                                        <span><?php esc_html_e( 'after issuance', 'kdna-ecommerce' ); ?></span>
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr style="background:#f0fff0;">
+                                <th><label><?php esc_html_e( 'Apply discount on', 'kdna-ecommerce' ); ?></label></th>
+                                <td>
+                                    <select name="kdna_sc_bulk_apply_on">
+                                        <option value="all_qualifying"><?php esc_html_e( 'All qualifying products', 'kdna-ecommerce' ); ?></option>
+                                        <option value="cheapest_item"><?php esc_html_e( 'Cheapest qualifying product', 'kdna-ecommerce' ); ?></option>
+                                        <option value="most_expensive"><?php esc_html_e( 'Most expensive qualifying product', 'kdna-ecommerce' ); ?></option>
+                                    </select>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <?php submit_button( __( 'Apply', 'kdna-ecommerce' ), 'primary', 'kdna_sc_do_bulk_generate' ); ?>
+            </form>
+        </div>
+        <?php
+    }
+
+    public function handle_bulk_generate() {
+        if ( ! isset( $_POST['kdna_sc_do_bulk_generate'] ) || ! wp_verify_nonce( $_POST['kdna_sc_bulk_nonce'] ?? '', 'kdna_sc_bulk_generate' ) ) {
+            return;
+        }
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            return;
+        }
+
+        $count         = absint( $_POST['kdna_sc_bulk_count'] ?? 10 );
+        $action_type   = sanitize_text_field( $_POST['kdna_sc_bulk_action'] ?? 'store' );
+        $discount_type = sanitize_text_field( $_POST['kdna_sc_bulk_discount_type'] ?? 'percent' );
+        $amount        = (float) ( $_POST['kdna_sc_bulk_amount'] ?? 0 );
+        $free_shipping = isset( $_POST['kdna_sc_bulk_free_shipping'] ) ? 'yes' : 'no';
+        $expiry_date   = sanitize_text_field( $_POST['kdna_sc_bulk_expiry_date'] ?? '' );
+        $expiry_time   = sanitize_text_field( $_POST['kdna_sc_bulk_expiry_time'] ?? '' );
+        $new_cust      = isset( $_POST['kdna_sc_bulk_new_customers'] );
+        $prefix        = sanitize_text_field( $_POST['kdna_sc_bulk_prefix'] ?? '' );
+        $suffix        = sanitize_text_field( $_POST['kdna_sc_bulk_suffix'] ?? '' );
+        $validity      = absint( $_POST['kdna_sc_bulk_validity'] ?? 0 );
+        $validity_unit = sanitize_text_field( $_POST['kdna_sc_bulk_validity_unit'] ?? 'days' );
+        $apply_on      = sanitize_text_field( $_POST['kdna_sc_bulk_apply_on'] ?? 'all_qualifying' );
+        $description   = sanitize_textarea_field( $_POST['kdna_sc_bulk_description'] ?? '' );
+
+        $s = self::get_settings();
+        $csv_rows = [];
+        $generated = 0;
+
+        for ( $i = 0; $i < $count; $i++ ) {
+            $code = $this->generate_coupon_code( 0, $s );
+            $code = strtolower( $prefix . $code . $suffix );
+
+            if ( $action_type === 'csv' ) {
+                $csv_rows[] = [
+                    'code'          => $code,
+                    'discount_type' => $discount_type,
+                    'amount'        => $amount,
+                    'free_shipping' => $free_shipping,
+                    'expiry_date'   => $expiry_date,
+                    'description'   => $description,
+                ];
+                $generated++;
+                continue;
+            }
+
+            $coupon = new WC_Coupon();
+            $coupon->set_code( $code );
+            $coupon->set_discount_type( $discount_type );
+            $coupon->set_amount( $amount );
+            $coupon->set_free_shipping( $free_shipping === 'yes' );
+            $coupon->set_description( $description );
+
+            if ( $expiry_date ) {
+                $expiry_str = $expiry_date;
+                if ( $expiry_time ) {
+                    $expiry_str .= ' ' . $expiry_time;
+                }
+                $coupon->set_date_expires( strtotime( $expiry_str ) );
+            } elseif ( $validity > 0 ) {
+                $expiry = new WC_DateTime();
+                $expiry->modify( "+{$validity} {$validity_unit}" );
+                $coupon->set_date_expires( $expiry );
+            }
+
+            $coupon->save();
+
+            if ( $new_cust ) {
+                update_post_meta( $coupon->get_id(), self::META_RESTRICT_NEW_USER, 'yes' );
+            }
+            if ( $apply_on !== 'all_qualifying' ) {
+                update_post_meta( $coupon->get_id(), self::META_APPLY_DISCOUNT_ON, $apply_on );
+            }
+            if ( $expiry_time ) {
+                update_post_meta( $coupon->get_id(), self::META_EXPIRY_TIME, $expiry_time );
+            }
+
+            $generated++;
+        }
+
+        if ( $action_type === 'csv' && ! empty( $csv_rows ) ) {
+            header( 'Content-Type: text/csv; charset=utf-8' );
+            header( 'Content-Disposition: attachment; filename=coupons-' . gmdate( 'Y-m-d' ) . '.csv' );
+            $output = fopen( 'php://output', 'w' );
+            fputcsv( $output, [ 'code', 'discount_type', 'amount', 'free_shipping', 'expiry_date', 'description' ] );
+            foreach ( $csv_rows as $row ) {
+                fputcsv( $output, $row );
+            }
+            fclose( $output );
+            exit;
+        }
+
+        wp_safe_redirect( add_query_arg( [
+            'post_type'        => 'shop_coupon',
+            'page'             => 'kdna-sc-bulk-generate',
+            'kdna_sc_generated' => $generated,
+        ], admin_url( 'edit.php' ) ) );
+        exit;
+    }
+
+    // ---- Import Coupons Page ----
+
+    public function render_import_coupons_page() {
+        ?>
+        <div class="wrap">
+            <?php $this->render_coupon_tabs_nav( 'import-coupons' ); ?>
+
+            <p><?php esc_html_e( 'Hi there! Upload a CSV file with coupons details to import them into your shop.', 'kdna-ecommerce' ); ?></p>
+            <p><?php esc_html_e( 'The CSV must adhere to a specific format and include a header row.', 'kdna-ecommerce' ); ?>
+                <a href="<?php echo esc_url( admin_url( 'admin-ajax.php?action=kdna_sc_sample_csv' ) ); ?>"><?php esc_html_e( 'Click here to download a sample', 'kdna-ecommerce' ); ?></a>
+            </p>
+            <p><strong><?php esc_html_e( 'Note:', 'kdna-ecommerce' ); ?></strong> <?php esc_html_e( 'If any coupon from the CSV file already exists in the store, it will not update the existing coupon, instead a new coupon will be imported & the previous coupon with the same code will become inactive.', 'kdna-ecommerce' ); ?></p>
+            <p><?php esc_html_e( 'Ready to import? Choose a .csv file, then click "Upload file".', 'kdna-ecommerce' ); ?></p>
+
+            <?php if ( ! empty( $_GET['kdna_sc_imported'] ) ) : ?>
+                <div class="notice notice-success"><p><?php printf( esc_html__( '%d coupons imported successfully!', 'kdna-ecommerce' ), absint( $_GET['kdna_sc_imported'] ) ); ?></p></div>
+            <?php endif; ?>
+
+            <form method="post" enctype="multipart/form-data" action="">
+                <?php wp_nonce_field( 'kdna_sc_import_coupons', 'kdna_sc_import_nonce' ); ?>
+
+                <div class="postbox" style="max-width:800px;">
+                    <div class="inside" style="text-align:center;padding:50px 20px;">
+                        <p>
+                            <label for="kdna_sc_csv_file" class="button button-hero" style="cursor:pointer;">
+                                <?php esc_html_e( 'Choose a CSV file', 'kdna-ecommerce' ); ?> &#x1f4c1;
+                            </label>
+                            <input type="file" id="kdna_sc_csv_file" name="kdna_sc_csv_file" accept=".csv" style="display:none;" onchange="document.getElementById('kdna_sc_csv_name').textContent=this.files[0]?.name||'';">
+                        </p>
+                        <p id="kdna_sc_csv_name" style="font-weight:600;"></p>
+                        <p class="description"><?php printf( esc_html__( 'Maximum file size: %s', 'kdna-ecommerce' ), esc_html( size_format( wp_max_upload_size() ) ) ); ?></p>
+                    </div>
+                </div>
+
+                <?php submit_button( __( 'Upload file', 'kdna-ecommerce' ), 'primary', 'kdna_sc_do_import' ); ?>
+            </form>
+        </div>
+        <?php
+    }
+
+    public function handle_import_coupons() {
+        if ( ! isset( $_POST['kdna_sc_do_import'] ) || ! wp_verify_nonce( $_POST['kdna_sc_import_nonce'] ?? '', 'kdna_sc_import_coupons' ) ) {
+            return;
+        }
+        if ( ! current_user_can( 'manage_woocommerce' ) || empty( $_FILES['kdna_sc_csv_file']['tmp_name'] ) ) {
+            return;
+        }
+
+        $file = fopen( $_FILES['kdna_sc_csv_file']['tmp_name'], 'r' );
+        if ( ! $file ) {
+            return;
+        }
+
+        $header = fgetcsv( $file );
+        if ( ! $header ) {
+            fclose( $file );
+            return;
+        }
+        $header = array_map( 'strtolower', array_map( 'trim', $header ) );
+        $imported = 0;
+
+        while ( ( $row = fgetcsv( $file ) ) !== false ) {
+            $data = array_combine( $header, $row );
+            if ( empty( $data['code'] ) ) {
+                continue;
+            }
+
+            $coupon = new WC_Coupon();
+            $coupon->set_code( sanitize_text_field( $data['code'] ) );
+            $coupon->set_discount_type( sanitize_text_field( $data['discount_type'] ?? 'fixed_cart' ) );
+            $coupon->set_amount( (float) ( $data['amount'] ?? 0 ) );
+            $coupon->set_description( sanitize_text_field( $data['description'] ?? '' ) );
+
+            if ( ! empty( $data['free_shipping'] ) && $data['free_shipping'] === 'yes' ) {
+                $coupon->set_free_shipping( true );
+            }
+            if ( ! empty( $data['expiry_date'] ) ) {
+                $coupon->set_date_expires( strtotime( $data['expiry_date'] ) );
+            }
+            if ( ! empty( $data['individual_use'] ) && $data['individual_use'] === 'yes' ) {
+                $coupon->set_individual_use( true );
+            }
+            if ( ! empty( $data['usage_limit'] ) ) {
+                $coupon->set_usage_limit( absint( $data['usage_limit'] ) );
+            }
+            if ( ! empty( $data['usage_limit_per_user'] ) ) {
+                $coupon->set_usage_limit_per_user( absint( $data['usage_limit_per_user'] ) );
+            }
+            if ( ! empty( $data['minimum_amount'] ) ) {
+                $coupon->set_minimum_amount( (float) $data['minimum_amount'] );
+            }
+            if ( ! empty( $data['maximum_amount'] ) ) {
+                $coupon->set_maximum_amount( (float) $data['maximum_amount'] );
+            }
+            if ( ! empty( $data['email_restrictions'] ) ) {
+                $coupon->set_email_restrictions( array_map( 'trim', explode( '|', $data['email_restrictions'] ) ) );
+            }
+            if ( ! empty( $data['product_ids'] ) ) {
+                $coupon->set_product_ids( array_map( 'absint', explode( '|', $data['product_ids'] ) ) );
+            }
+            if ( ! empty( $data['product_categories'] ) ) {
+                $coupon->set_product_categories( array_map( 'absint', explode( '|', $data['product_categories'] ) ) );
+            }
+
+            // Deactivate existing coupon with same code.
+            $existing = wc_get_coupon_id_by_code( sanitize_text_field( $data['code'] ) );
+            if ( $existing ) {
+                wp_update_post( [ 'ID' => $existing, 'post_status' => 'draft' ] );
+            }
+
+            $coupon->save();
+            $imported++;
+        }
+
+        fclose( $file );
+
+        wp_safe_redirect( add_query_arg( [
+            'post_type'        => 'shop_coupon',
+            'page'             => 'kdna-sc-import-coupons',
+            'kdna_sc_imported' => $imported,
+        ], admin_url( 'edit.php' ) ) );
+        exit;
+    }
+
+    // ---- Send Store Credit Page ----
+
+    public function render_send_credit_page() {
+        ?>
+        <div class="wrap">
+            <?php $this->render_coupon_tabs_nav( 'send-credit' ); ?>
+
+            <p><?php esc_html_e( 'Quickly create and email Store Credit or Gift Card to one or more people.', 'kdna-ecommerce' ); ?></p>
+
+            <?php if ( ! empty( $_GET['kdna_sc_credit_sent'] ) ) : ?>
+                <div class="notice notice-success"><p><?php esc_html_e( 'Store credit sent successfully!', 'kdna-ecommerce' ); ?></p></div>
+            <?php endif; ?>
+
+            <form method="post" action="">
+                <?php wp_nonce_field( 'kdna_sc_send_credit', 'kdna_sc_credit_nonce' ); ?>
+
+                <div class="postbox" style="max-width:800px;">
+                    <div class="inside">
+                        <table class="form-table">
+                            <tr>
+                                <th><label for="kdna_sc_credit_to"><?php esc_html_e( 'Send to', 'kdna-ecommerce' ); ?><span style="color:red;">*</span></label></th>
+                                <td>
+                                    <input type="text" id="kdna_sc_credit_to" name="kdna_sc_credit_to" class="regular-text" placeholder="johnsmith@example.com" required style="min-width:400px;">
+                                    <span class="description"><?php esc_html_e( 'Use comma "," to separate multiple email addresses', 'kdna-ecommerce' ); ?></span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="kdna_sc_credit_amount"><?php esc_html_e( 'Worth', 'kdna-ecommerce' ); ?><span style="color:red;">*</span></label></th>
+                                <td>
+                                    <span style="display:inline-flex;align-items:center;gap:4px;">
+                                        <?php echo esc_html( get_woocommerce_currency_symbol() ); ?>
+                                        <input type="number" id="kdna_sc_credit_amount" name="kdna_sc_credit_amount" value="0.00" min="0.01" step="0.01" class="small-text" required>
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <th><label for="kdna_sc_credit_expiry"><?php esc_html_e( 'Expiry Date', 'kdna-ecommerce' ); ?></label></th>
+                                <td><input type="date" id="kdna_sc_credit_expiry" name="kdna_sc_credit_expiry" placeholder="YYYY-MM-DD"></td>
+                            </tr>
+                            <tr>
+                                <th><label for="kdna_sc_credit_message"><?php esc_html_e( 'Message', 'kdna-ecommerce' ); ?> <span class="description">(<?php esc_html_e( 'optional', 'kdna-ecommerce' ); ?>)</span></label></th>
+                                <td>
+                                    <?php
+                                    wp_editor( '', 'kdna_sc_credit_message', [
+                                        'textarea_name' => 'kdna_sc_credit_message',
+                                        'textarea_rows' => 8,
+                                        'media_buttons' => true,
+                                        'teeny'         => false,
+                                        'quicktags'     => true,
+                                    ] );
+                                    ?>
+                                </td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+
+                <p>
+                    <?php submit_button( __( 'Send', 'kdna-ecommerce' ), 'primary', 'kdna_sc_do_send_credit', false ); ?>
+                    <button type="button" class="button" id="kdna_sc_preview_email" style="margin-left:8px;"><?php esc_html_e( 'Preview Email', 'kdna-ecommerce' ); ?></button>
+                </p>
+            </form>
+        </div>
+        <?php
+    }
+
+    public function handle_send_store_credit() {
+        if ( ! isset( $_POST['kdna_sc_do_send_credit'] ) || ! wp_verify_nonce( $_POST['kdna_sc_credit_nonce'] ?? '', 'kdna_sc_send_credit' ) ) {
+            return;
+        }
+        if ( ! current_user_can( 'manage_woocommerce' ) ) {
+            return;
+        }
+
+        $emails  = array_map( 'sanitize_email', array_map( 'trim', explode( ',', $_POST['kdna_sc_credit_to'] ?? '' ) ) );
+        $amount  = (float) ( $_POST['kdna_sc_credit_amount'] ?? 0 );
+        $expiry  = sanitize_text_field( $_POST['kdna_sc_credit_expiry'] ?? '' );
+        $message = wp_kses_post( wp_unslash( $_POST['kdna_sc_credit_message'] ?? '' ) );
+        $s       = self::get_settings();
+
+        if ( $amount <= 0 || empty( $emails ) ) {
+            return;
+        }
+
+        foreach ( $emails as $email ) {
+            if ( ! is_email( $email ) ) {
+                continue;
+            }
+
+            $code = $this->generate_coupon_code( 0, $s );
+            $coupon = new WC_Coupon();
+            $coupon->set_code( $code );
+            $coupon->set_discount_type( 'store_credit' );
+            $coupon->set_amount( $amount );
+            $coupon->set_email_restrictions( [ $email ] );
+            $coupon->set_usage_limit( 0 );
+
+            if ( $expiry ) {
+                $coupon->set_date_expires( strtotime( $expiry ) );
+            }
+
+            $coupon->save();
+
+            if ( $message ) {
+                update_post_meta( $coupon->get_id(), self::META_COUPON_MESSAGE, $message );
+            }
+
+            // Send email.
+            $subject = sprintf( __( 'You have received a %s!', 'kdna-ecommerce' ), $s['credit_label_singular'] ?: 'Store Credit' );
+            $body    = $this->build_coupon_email_html( $coupon, null );
+            if ( $message ) {
+                $body .= '<div style="margin-top:15px;">' . $message . '</div>';
+            }
+            wp_mail( $email, $subject, $body, [ 'Content-Type: text/html; charset=UTF-8' ] );
+        }
+
+        wp_safe_redirect( add_query_arg( [
+            'post_type'          => 'shop_coupon',
+            'page'               => 'kdna-sc-send-credit',
+            'kdna_sc_credit_sent' => 1,
+        ], admin_url( 'edit.php' ) ) );
+        exit;
+    }
+
+    // ---- Sample CSV Download ----
+
+    public static function ajax_sample_csv() {
+        header( 'Content-Type: text/csv; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename=sample-coupons.csv' );
+        $output = fopen( 'php://output', 'w' );
+        fputcsv( $output, [ 'code', 'discount_type', 'amount', 'description', 'free_shipping', 'expiry_date', 'individual_use', 'usage_limit', 'usage_limit_per_user', 'minimum_amount', 'maximum_amount', 'email_restrictions', 'product_ids', 'product_categories' ] );
+        fputcsv( $output, [ 'SAMPLE10OFF', 'percent', '10', 'Sample 10% off coupon', 'no', '2026-12-31', 'no', '', '', '', '', '', '', '' ] );
+        fputcsv( $output, [ 'CREDIT50', 'store_credit', '50', 'Store credit coupon', 'no', '', 'no', '1', '1', '', '', 'customer@example.com', '', '' ] );
+        fclose( $output );
+        exit;
+    }
+
+    // =========================================================================
+    // Execute Coupon Actions (Add Products to Cart)
+    // =========================================================================
+
+    public function execute_coupon_actions( $coupon_code ) {
+        $coupon = new WC_Coupon( $coupon_code );
+        if ( ! $coupon->get_id() ) {
+            return;
+        }
+
+        $product_ids = get_post_meta( $coupon->get_id(), self::META_ACTION_ADD_PRODUCTS, true );
+        if ( empty( $product_ids ) || ! is_array( $product_ids ) ) {
+            return;
+        }
+
+        $qty         = max( 1, absint( get_post_meta( $coupon->get_id(), self::META_ACTION_ADD_QUANTITY, true ) ) );
+        $user_choose = get_post_meta( $coupon->get_id(), self::META_ACTION_USER_CAN_CHOOSE, true ) === 'yes';
+
+        if ( $user_choose ) {
+            // Store in session for frontend product chooser.
+            if ( WC()->session ) {
+                WC()->session->set( 'kdna_sc_action_choose_products', $product_ids );
+                WC()->session->set( 'kdna_sc_action_choose_coupon', $coupon->get_id() );
+            }
+            return;
+        }
+
+        foreach ( $product_ids as $product_id ) {
+            $product = wc_get_product( $product_id );
+            if ( ! $product || ! $product->is_in_stock() ) {
+                continue;
+            }
+            WC()->cart->add_to_cart( $product_id, $qty );
+        }
+
+        // Display action message.
+        $message = get_post_meta( $coupon->get_id(), self::META_ACTION_MESSAGE, true );
+        if ( $message ) {
+            wc_add_notice( wp_kses_post( $message ), 'success' );
         }
     }
 
