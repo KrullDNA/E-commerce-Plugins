@@ -382,7 +382,9 @@
                     html += this.field('text', 'code_variable', 'Code Variable', p.code_variable || '{coupon_code}');
                     html += this.colorField('bg_color', 'Background', p.bg_color || '#f0f9ff');
                     html += this.colorField('border_color', 'Border', p.border_color || '#0073aa');
+                    html += this.colorField('text_color', 'Text Color', p.text_color || '#333');
                     html += this.field('text', 'code_font_size', 'Code Size', p.code_font_size || '20px');
+                    html += this.toggleField('show_expiry', 'Show Expiry', p.show_expiry !== false);
                     html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
                     break;
                 case 'html':
@@ -409,14 +411,31 @@
                     html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
                     break;
                 case 'product':
+                    html += this.toggleField('show_image', 'Show Image', p.show_image !== false);
+                    html += this.toggleField('show_title', 'Show Title', p.show_title !== false);
+                    html += this.toggleField('show_price', 'Show Price', p.show_price !== false);
+                    html += this.toggleField('show_description', 'Show Description', p.show_description === true);
+                    html += this.toggleField('show_button', 'Show Button', p.show_button !== false);
+                    html += this.field('text', 'button_text', 'Button Text', p.button_text || 'Shop Now');
+                    html += this.field('select', 'columns', 'Columns', String(p.columns || 2), { '1': '1', '2': '2', '3': '3', '4': '4' });
                     html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
                     break;
                 case 'order_items':
+                    html += this.toggleField('show_image', 'Show Image', p.show_image !== false);
+                    html += this.toggleField('show_sku', 'Show SKU', p.show_sku === true);
+                    html += this.toggleField('show_quantity', 'Show Quantity', p.show_quantity !== false);
+                    html += this.toggleField('show_price', 'Show Price', p.show_price !== false);
+                    html += this.toggleField('show_total', 'Show Total', p.show_total !== false);
+                    html += this.field('text', 'image_width', 'Image Width', p.image_width || '64px');
                     html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
                     break;
                 case 'video':
                     html += this.field('url', 'url', 'Video URL', p.url || '');
+                    html += '<div class="kdna-etb-field"><label>Thumbnail</label><button class="button kdna-etb-pick-image" data-prop="thumbnail">Choose Thumbnail</button>';
+                    if (p.thumbnail) html += '<br><img src="' + this.escAttr(p.thumbnail) + '" style="max-width:100%;margin-top:8px;" />';
+                    html += '</div>';
                     html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
+                    html += this.alignField('text_align', p.text_align || 'center');
                     break;
                 case 'blank_row':
                     html += this.field('text', 'height', 'Height', p.height || '40px');
@@ -454,6 +473,11 @@
             }
             html += '</div>';
             return html;
+        },
+
+        toggleField: function (name, label, value) {
+            var checked = value === true || value === 'true' || value === 1 || value === '1';
+            return '<div class="kdna-etb-field kdna-etb-toggle"><label>' + this.escHtml(label) + '</label><input type="checkbox" class="kdna-etb-input kdna-etb-toggle-input" data-prop="' + name + '"' + (checked ? ' checked' : '') + ' /></div>';
         },
 
         colorField: function (name, label, value) {
@@ -516,10 +540,22 @@
                 }
             });
 
-            // Add row
+            // Add row — insert a blank_row block so the user can configure height, background, etc.
             this.el.on('click', '.kdna-etb-add-row', function () {
-                self.structure.rows.push({ blocks: [] });
+                var defaults = self.blocks['blank_row'] ? self.blocks['blank_row'].defaults : { height: '40px', bg_color: '#f7f7f7', padding: '0px' };
+                self.structure.rows.push({ blocks: [{ type: 'blank_row', props: $.extend(true, {}, defaults) }] });
                 self.refreshCanvas();
+                self.selectBlock(self.structure.rows.length - 1, 0);
+            });
+
+            // Click on a block palette item — add it to the canvas (fallback for non-drag interactions).
+            this.el.on('click', '.kdna-etb-block-item', function () {
+                var type = $(this).data('type');
+                if (!type) return;
+                var defaults = self.blocks[type] ? self.blocks[type].defaults : {};
+                self.structure.rows.push({ blocks: [{ type: type, props: $.extend(true, {}, defaults) }] });
+                self.refreshCanvas();
+                self.selectBlock(self.structure.rows.length - 1, 0);
             });
 
             // Row actions
@@ -561,7 +597,7 @@
             // Block/design setting changes
             this.el.on('change input', '.kdna-etb-input', function () {
                 var prop = $(this).data('prop');
-                var val = $(this).val();
+                var val = $(this).is(':checkbox') ? $(this).is(':checked') : $(this).val();
                 var panel = $(this).closest('.kdna-etb-panel').data('panel');
 
                 if (panel === 'settings') {
@@ -575,6 +611,14 @@
                         block.props[parts[0]][parts[1]] = val;
                     } else {
                         block.props[prop] = val;
+                        // Auto-resize col_blocks array when columns count changes.
+                        if (prop === 'columns' && block.type === 'columns') {
+                            var newCols = parseInt(val) || 2;
+                            if (!block.props.col_blocks) block.props.col_blocks = [];
+                            while (block.props.col_blocks.length < newCols) {
+                                block.props.col_blocks.push([]);
+                            }
+                        }
                     }
                     self.refreshCanvas();
                 }

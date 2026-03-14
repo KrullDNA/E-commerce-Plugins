@@ -95,6 +95,8 @@ class KDNA_Automations {
         add_action( 'kdna_aw_check_abandoned_carts', [ $this, 'check_abandoned_carts' ] );
         add_action( 'kdna_aw_clean_inactive_carts', [ $this, 'clean_inactive_carts' ] );
         add_action( 'kdna_aw_clean_expired_coupons', [ $this, 'clean_expired_coupons' ] );
+        add_action( 'kdna_aw_check_card_expiry', [ $this, 'check_card_expiry' ] );
+        add_action( 'kdna_aw_check_win_back', [ $this, 'check_win_back_customers' ] );
         add_action( 'init', [ $this, 'schedule_cron_events' ] );
 
         // Unsubscribe endpoint.
@@ -1066,6 +1068,88 @@ class KDNA_Automations {
                 return $product ? $product->get_stock_status() : '';
             case 'product_type':
                 return $product ? $product->get_type() : '';
+            case 'order_meta':
+                if ( $order ) {
+                    $meta_key = $data_layer['rule_meta_key'] ?? '';
+                    return get_post_meta( $order->get_id(), $meta_key, true );
+                }
+                return '';
+            case 'customer_last_order_date':
+                if ( $customer && method_exists( $customer, 'get_id' ) && $customer->get_id() ) {
+                    $last_order = wc_get_customer_last_order( $customer->get_id() );
+                    if ( $last_order && $last_order->get_date_created() ) {
+                        return $last_order->get_date_created()->date( 'Y-m-d' );
+                    }
+                }
+                return '';
+            case 'customer_meta':
+                if ( $customer && method_exists( $customer, 'get_id' ) && $customer->get_id() ) {
+                    $meta_key = $data_layer['rule_meta_key'] ?? '';
+                    return get_user_meta( $customer->get_id(), $meta_key, true );
+                }
+                return '';
+            case 'customer_tags':
+                if ( $customer && method_exists( $customer, 'get_id' ) && $customer->get_id() ) {
+                    $tags = wp_get_object_terms( $customer->get_id(), 'customer_tag', [ 'fields' => 'names' ] );
+                    if ( ! is_wp_error( $tags ) ) {
+                        return implode( ',', $tags );
+                    }
+                }
+                return '';
+            case 'customer_has_active_subscription':
+                if ( $customer && method_exists( $customer, 'get_id' ) && $customer->get_id() && function_exists( 'wcs_user_has_subscription' ) ) {
+                    return wcs_user_has_subscription( $customer->get_id(), '', 'active' ) ? 'yes' : 'no';
+                }
+                return 'no';
+            case 'cart_has_product':
+                if ( $cart && method_exists( $cart, 'get_cart' ) ) {
+                    foreach ( $cart->get_cart() as $cart_item ) {
+                        if ( (int) $cart_item['product_id'] === (int) ( $data_layer['rule_value'] ?? 0 ) ) {
+                            return 'yes';
+                        }
+                        if ( ! empty( $cart_item['variation_id'] ) && (int) $cart_item['variation_id'] === (int) ( $data_layer['rule_value'] ?? 0 ) ) {
+                            return 'yes';
+                        }
+                    }
+                }
+                return 'no';
+            case 'cart_has_category':
+                if ( $cart && method_exists( $cart, 'get_cart' ) ) {
+                    foreach ( $cart->get_cart() as $cart_item ) {
+                        $product_cats = wp_get_post_terms( $cart_item['product_id'], 'product_cat', [ 'fields' => 'slugs' ] );
+                        if ( ! is_wp_error( $product_cats ) && in_array( $data_layer['rule_value'] ?? '', $product_cats, true ) ) {
+                            return 'yes';
+                        }
+                    }
+                }
+                return 'no';
+            case 'cart_coupons':
+                if ( $cart && method_exists( $cart, 'get_applied_coupons' ) ) {
+                    return implode( ',', $cart->get_applied_coupons() );
+                }
+                return '';
+            case 'product_categories':
+                if ( $product ) {
+                    $terms = wp_get_post_terms( $product->get_id(), 'product_cat', [ 'fields' => 'names' ] );
+                    if ( ! is_wp_error( $terms ) ) {
+                        return implode( ',', $terms );
+                    }
+                }
+                return '';
+            case 'product_tags':
+                if ( $product ) {
+                    $terms = wp_get_post_terms( $product->get_id(), 'product_tag', [ 'fields' => 'names' ] );
+                    if ( ! is_wp_error( $terms ) ) {
+                        return implode( ',', $terms );
+                    }
+                }
+                return '';
+            case 'product_meta':
+                if ( $product ) {
+                    $meta_key = $data_layer['rule_meta_key'] ?? '';
+                    return get_post_meta( $product->get_id(), $meta_key, true );
+                }
+                return '';
             default:
                 return '';
         }
@@ -1368,6 +1452,72 @@ class KDNA_Automations {
                     ) );
                 }
                 return true;
+
+            case 'remove_from_cart':
+                if ( function_exists( 'WC' ) && WC()->cart ) {
+                    WC()->cart->empty_cart();
+                    return true;
+                }
+                return false;
+
+            case 'change_membership_plan':
+                $customer = $data_layer['customer'] ?? null;
+                if ( $customer && method_exists( $customer, 'get_id' ) && $customer->get_id() ) {
+                    $new_plan_id = absint( $config['plan_id'] ?? 0 );
+                    if ( $new_plan_id && function_exists( 'wc_memberships_get_user_active_memberships' ) ) {
+                        $memberships = wc_memberships_get_user_active_memberships( $customer->get_id() );
+                        if ( ! empty( $memberships ) ) {
+                            // Change the first active membership to the new plan.
+                            $membership = $memberships[0];
+                            $membership->set_plan_id( $new_plan_id );
+                            $membership->save();
+                        } else {
+                            // Create a new membership for the user.
+                            wc_memberships_create_user_membership( [
+                                'plan_id' => $new_plan_id,
+                                'user_id' => $customer->get_id(),
+                            ] );
+                        }
+                        return true;
+                    }
+                }
+                return false;
+
+            case 'update_contact_field':
+                $customer = $data_layer['customer'] ?? null;
+                if ( $customer && method_exists( $customer, 'get_id' ) && $customer->get_id() ) {
+                    $field_key   = sanitize_key( $config['field_key'] ?? '' );
+                    $field_value = $this->replace_variables( $config['field_value'] ?? '', $data_layer );
+                    if ( $field_key ) {
+                        update_user_meta( $customer->get_id(), $field_key, $field_value );
+                        return true;
+                    }
+                }
+                return false;
+
+            case 'update_subscription_meta':
+                $subscription = $data_layer['subscription'] ?? null;
+                if ( $subscription && is_object( $subscription ) && method_exists( $subscription, 'update_meta_data' ) ) {
+                    $meta_key   = sanitize_key( $config['meta_key'] ?? '' );
+                    $meta_value = $this->replace_variables( $config['meta_value'] ?? '', $data_layer );
+                    if ( $meta_key ) {
+                        $subscription->update_meta_data( $meta_key, $meta_value );
+                        $subscription->save();
+                        return true;
+                    }
+                }
+                return false;
+
+            case 'change_subscription_status':
+                $subscription = $data_layer['subscription'] ?? null;
+                if ( $subscription && is_object( $subscription ) && method_exists( $subscription, 'update_status' ) ) {
+                    $new_status = sanitize_text_field( $config['new_status'] ?? '' );
+                    if ( $new_status ) {
+                        $subscription->update_status( $new_status, __( 'Status changed by Automations workflow.', 'kdna-ecommerce' ) );
+                        return true;
+                    }
+                }
+                return false;
 
             default:
                 do_action( 'kdna_aw_execute_action_' . $action_type, $config, $data_layer );
@@ -2045,6 +2195,19 @@ class KDNA_Automations {
         ) );
 
         foreach ( $abandoned as $cart ) {
+            // If pending orders should not be treated as abandoned carts, check for pending orders.
+            if ( $this->settings['abandoned_cart_includes_pending_orders'] !== 'yes' && $cart->user_id ) {
+                $pending_orders = wc_get_orders( [
+                    'customer_id' => $cart->user_id,
+                    'status'      => 'pending',
+                    'limit'       => 1,
+                    'date_after'  => $cart->created_at,
+                ] );
+                if ( ! empty( $pending_orders ) ) {
+                    continue; // Skip this cart; customer has a pending order.
+                }
+            }
+
             $wpdb->update( $table, [
                 'status'       => 'abandoned',
                 'abandoned_at' => current_time( 'mysql' ),
@@ -2191,6 +2354,20 @@ class KDNA_Automations {
 
     public function ajax_capture_guest_email() {
         check_ajax_referer( 'kdna_aw_capture', '_wpnonce' );
+
+        // Respect session tracking settings.
+        if ( $this->settings['session_tracking_enabled'] !== 'yes' ) {
+            wp_send_json_error( 'session_tracking_disabled' );
+        }
+
+        // Check cookie consent if required.
+        if ( $this->settings['session_tracking_requires_cookie_consent'] === 'yes' ) {
+            $consent_cookie_name = $this->settings['session_tracking_consent_cookie_name'];
+            if ( $consent_cookie_name && empty( $_COOKIE[ $consent_cookie_name ] ) ) {
+                wp_send_json_error( 'cookie_consent_required' );
+            }
+        }
+
         $email = sanitize_email( $_POST['email'] ?? '' );
         if ( ! is_email( $email ) ) {
             wp_send_json_error();
@@ -2409,6 +2586,14 @@ class KDNA_Automations {
         if ( $this->settings['clean_expired_coupons'] === 'yes' && ! as_has_scheduled_action( 'kdna_aw_clean_expired_coupons' ) ) {
             as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'kdna_aw_clean_expired_coupons', [], 'kdna-automations' );
         }
+
+        if ( ! as_has_scheduled_action( 'kdna_aw_check_card_expiry' ) ) {
+            as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'kdna_aw_check_card_expiry', [], 'kdna-automations' );
+        }
+
+        if ( ! as_has_scheduled_action( 'kdna_aw_check_win_back' ) ) {
+            as_schedule_recurring_action( time(), DAY_IN_SECONDS, 'kdna_aw_check_win_back', [], 'kdna-automations' );
+        }
     }
 
     public function clean_expired_coupons() {
@@ -2421,6 +2606,136 @@ class KDNA_Automations {
         ] );
         foreach ( $coupons as $coupon ) {
             wp_trash_post( $coupon->ID );
+        }
+    }
+
+    /**
+     * Check for saved cards nearing expiry and fire the kdna_aw_card_expiry trigger.
+     */
+    public function check_card_expiry() {
+        $workflows = $this->get_active_workflows();
+        $card_expiry_workflows = [];
+
+        foreach ( $workflows as $wf_id ) {
+            $trigger = get_post_meta( $wf_id, self::META_TRIGGER, true );
+            if ( $trigger === 'customer_before_saved_card_expiry' ) {
+                $options = get_post_meta( $wf_id, self::META_TRIGGER_OPTIONS, true ) ?: [];
+                $card_expiry_workflows[] = [
+                    'id'          => $wf_id,
+                    'days_before' => absint( $options['days_before'] ?? 30 ),
+                ];
+            }
+        }
+
+        if ( empty( $card_expiry_workflows ) ) {
+            return;
+        }
+
+        // Get all users with saved payment tokens.
+        $users_with_tokens = get_users( [
+            'meta_key'     => '',
+            'fields'       => 'ids',
+            'number'       => 500,
+        ] );
+
+        foreach ( $users_with_tokens as $user_id ) {
+            $tokens = \WC_Payment_Tokens::get_customer_tokens( $user_id );
+            if ( empty( $tokens ) ) {
+                continue;
+            }
+
+            foreach ( $tokens as $token ) {
+                $expiry_month = $token->get_expiry_month();
+                $expiry_year  = $token->get_expiry_year();
+
+                if ( ! $expiry_month || ! $expiry_year ) {
+                    continue;
+                }
+
+                // Card expires on the last day of the expiry month.
+                $expiry_date = strtotime( $expiry_year . '-' . $expiry_month . '-01 +1 month -1 day' );
+
+                foreach ( $card_expiry_workflows as $wf ) {
+                    $check_date = strtotime( '+' . $wf['days_before'] . ' days' );
+                    // If the expiry date falls within the notification window (between now and days_before from now).
+                    if ( $expiry_date > time() && $expiry_date <= $check_date ) {
+                        $data_layer = [
+                            'trigger'  => 'customer_before_saved_card_expiry',
+                            'customer' => new \WC_Customer( $user_id ),
+                        ];
+                        do_action( 'kdna_aw_card_expiry', $data_layer );
+                        $this->maybe_run_workflow( $wf['id'], $data_layer );
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Check for inactive customers and fire the kdna_aw_customer_win_back trigger.
+     */
+    public function check_win_back_customers() {
+        $workflows = $this->get_active_workflows();
+        $win_back_workflows = [];
+
+        foreach ( $workflows as $wf_id ) {
+            $trigger = get_post_meta( $wf_id, self::META_TRIGGER, true );
+            if ( $trigger === 'customer_win_back' ) {
+                $options = get_post_meta( $wf_id, self::META_TRIGGER_OPTIONS, true ) ?: [];
+                $win_back_workflows[] = [
+                    'id'                  => $wf_id,
+                    'days_since_purchase' => absint( $options['days_since_purchase'] ?? 90 ),
+                ];
+            }
+        }
+
+        if ( empty( $win_back_workflows ) ) {
+            return;
+        }
+
+        foreach ( $win_back_workflows as $wf ) {
+            $days   = $wf['days_since_purchase'];
+            $cutoff = gmdate( 'Y-m-d H:i:s', strtotime( "-{$days} days" ) );
+
+            // Find customers whose last order was placed before the cutoff date.
+            $customers = get_users( [
+                'role'    => 'customer',
+                'fields'  => 'ids',
+                'number'  => 500,
+            ] );
+
+            foreach ( $customers as $user_id ) {
+                $last_order = wc_get_customer_last_order( $user_id );
+                if ( ! $last_order ) {
+                    continue;
+                }
+
+                $last_order_date = $last_order->get_date_created();
+                if ( ! $last_order_date ) {
+                    continue;
+                }
+
+                // Check if the last order date is older than the cutoff.
+                if ( $last_order_date->getTimestamp() > strtotime( $cutoff ) ) {
+                    continue;
+                }
+
+                // Avoid sending duplicate win-back triggers by checking if we already ran recently.
+                $already_sent = get_user_meta( $user_id, '_kdna_aw_win_back_sent_' . $wf['id'], true );
+                if ( $already_sent && strtotime( $already_sent ) > strtotime( '-30 days' ) ) {
+                    continue;
+                }
+
+                $data_layer = [
+                    'trigger'  => 'customer_win_back',
+                    'customer' => new \WC_Customer( $user_id ),
+                ];
+                do_action( 'kdna_aw_customer_win_back', $data_layer );
+                $this->maybe_run_workflow( $wf['id'], $data_layer );
+
+                // Mark as sent to prevent duplicates.
+                update_user_meta( $user_id, '_kdna_aw_win_back_sent_' . $wf['id'], current_time( 'mysql' ) );
+            }
         }
     }
 
@@ -2455,7 +2770,7 @@ class KDNA_Automations {
     public function render_queue_page() {
         global $wpdb;
         $table = $wpdb->prefix . self::TABLE_QUEUE;
-        $items = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY created_at DESC LIMIT 100" );
+        $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} ORDER BY created_at DESC LIMIT %d", 100 ) );
         ?>
         <div class="wrap">
             <h1><?php esc_html_e( 'Automations Queue', 'kdna-ecommerce' ); ?></h1>
@@ -2497,7 +2812,7 @@ class KDNA_Automations {
     public function render_logs_page() {
         global $wpdb;
         $table = $wpdb->prefix . self::TABLE_LOGS;
-        $logs  = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY created_at DESC LIMIT 100" );
+        $logs  = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} ORDER BY created_at DESC LIMIT %d", 100 ) );
         ?>
         <div class="wrap">
             <h1><?php esc_html_e( 'Automations Logs', 'kdna-ecommerce' ); ?></h1>
@@ -2537,7 +2852,7 @@ class KDNA_Automations {
     public function render_carts_page() {
         global $wpdb;
         $table = $wpdb->prefix . self::TABLE_CARTS;
-        $carts = $wpdb->get_results( "SELECT * FROM {$table} ORDER BY updated_at DESC LIMIT 100" );
+        $carts = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} ORDER BY updated_at DESC LIMIT %d", 100 ) );
         ?>
         <div class="wrap">
             <h1><?php esc_html_e( 'Abandoned Carts', 'kdna-ecommerce' ); ?></h1>
@@ -2632,13 +2947,13 @@ class KDNA_Automations {
 
     public function rest_get_queue( $request ) {
         global $wpdb;
-        $items = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}" . self::TABLE_QUEUE . " ORDER BY created_at DESC LIMIT 100" );
+        $items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}" . self::TABLE_QUEUE . " ORDER BY created_at DESC LIMIT %d", 100 ) );
         return rest_ensure_response( $items );
     }
 
     public function rest_get_logs( $request ) {
         global $wpdb;
-        $logs = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}" . self::TABLE_LOGS . " ORDER BY created_at DESC LIMIT 100" );
+        $logs = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$wpdb->prefix}" . self::TABLE_LOGS . " ORDER BY created_at DESC LIMIT %d", 100 ) );
         return rest_ensure_response( $logs );
     }
 

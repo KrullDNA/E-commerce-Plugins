@@ -105,8 +105,20 @@ class KDNA_Smart_Coupons {
         // ---- Excluded emails validation ----
         add_filter( 'woocommerce_coupon_is_valid', [ $this, 'validate_excluded_emails' ], 10, 3 );
 
+        // ---- Apply Discount On (cheapest/most expensive) ----
+        add_filter( 'woocommerce_coupon_get_discount_amount', [ $this, 'apply_discount_on_filter' ], 10, 5 );
+
+        // ---- Expiry time — append HH:MM to date_expires on save ----
+        add_action( 'woocommerce_coupon_options_save', [ $this, 'apply_expiry_time_on_save' ], 20, 2 );
+
+        // ---- Max discount cap ----
+        add_filter( 'woocommerce_coupon_get_discount_amount', [ $this, 'cap_max_discount' ], 15, 5 );
+
         // ---- Execute coupon actions (add products to cart) ----
         add_action( 'woocommerce_applied_coupon', [ $this, 'execute_coupon_actions' ] );
+
+        // ---- Re-apply action discounts on cart recalculation ----
+        add_action( 'woocommerce_before_calculate_totals', [ $this, 'reapply_action_discounts' ], 98 );
 
         // ---- Sample CSV download ----
         add_action( 'wp_ajax_kdna_sc_sample_csv', [ __CLASS__, 'ajax_sample_csv' ] );
@@ -419,6 +431,24 @@ class KDNA_Smart_Coupons {
             'description' => __( 'When checked, this coupon will be included for display on cart / checkout / My Account pages - for all eligible customers.', 'kdna-ecommerce' ),
             'value'       => get_post_meta( $coupon_id, self::META_IS_VISIBLE_STOREWIDE, true ),
             'cbvalue'     => 'yes',
+        ] );
+
+        woocommerce_wp_checkbox( [
+            'id'          => self::META_PICK_PRICE_OF_PRODUCT,
+            'label'       => __( 'Pick price of product?', 'kdna-ecommerce' ),
+            'description' => __( 'When checked and used with auto-generate, the generated coupon amount will equal the product price instead of the template coupon amount.', 'kdna-ecommerce' ),
+            'value'       => get_post_meta( $coupon_id, self::META_PICK_PRICE_OF_PRODUCT, true ),
+            'cbvalue'     => 'yes',
+        ] );
+
+        woocommerce_wp_text_input( [
+            'id'          => self::META_MAX_DISCOUNT,
+            'label'       => __( 'Max discount', 'kdna-ecommerce' ),
+            'description' => __( 'Maximum discount amount this coupon can give. Leave blank for no limit.', 'kdna-ecommerce' ),
+            'desc_tip'    => true,
+            'type'        => 'text',
+            'placeholder' => __( 'No limit', 'kdna-ecommerce' ),
+            'value'       => get_post_meta( $coupon_id, self::META_MAX_DISCOUNT, true ),
         ] );
 
         woocommerce_wp_checkbox( [
@@ -792,7 +822,12 @@ class KDNA_Smart_Coupons {
             return $valid;
         }
 
-        $excluded_list = array_filter( array_map( 'strtolower', array_map( 'trim', explode( "\n", $excluded_emails ) ) ) );
+        // Handle both array (from save handler) and string formats.
+        if ( is_array( $excluded_emails ) ) {
+            $excluded_list = array_filter( array_map( 'strtolower', array_map( 'trim', $excluded_emails ) ) );
+        } else {
+            $excluded_list = array_filter( array_map( 'strtolower', array_map( 'trim', preg_split( '/[\n,]+/', $excluded_emails ) ) ) );
+        }
         if ( empty( $excluded_list ) ) {
             return $valid;
         }
@@ -811,6 +846,166 @@ class KDNA_Smart_Coupons {
         }
 
         return $valid;
+    }
+
+    // =========================================================================
+    // Expiry Time — Append HH:MM to WooCommerce's date_expires on coupon save
+    // =========================================================================
+
+    /**
+     * After the standard save, adjust the coupon's date_expires to include the HH:MM.
+     * Runs at priority 20 so it fires after our main save_coupon_fields (priority 10).
+     */
+    public function apply_expiry_time_on_save( $coupon_id, $coupon ) {
+        $time = get_post_meta( $coupon_id, self::META_EXPIRY_TIME, true );
+        if ( empty( $time ) || ! preg_match( '/^\d{1,2}:\d{2}$/', $time ) ) {
+            return;
+        }
+
+        // WooCommerce stores expiry as a timestamp in the 'date_expires' meta key.
+        $coupon_obj = new WC_Coupon( $coupon_id );
+        $date_expires = $coupon_obj->get_date_expires();
+        if ( ! $date_expires ) {
+            return;
+        }
+
+        list( $hours, $minutes ) = explode( ':', $time );
+        $hours   = absint( $hours );
+        $minutes = absint( $minutes );
+
+        // Reset time to midnight then set the desired HH:MM.
+        $date_expires->setTime( $hours, $minutes, 0 );
+        $coupon_obj->set_date_expires( $date_expires );
+        $coupon_obj->save();
+    }
+
+    // =========================================================================
+    // Apply Discount On — Cheapest / Most Expensive item filter
+    // =========================================================================
+
+    /**
+     * If the coupon's "Apply Discount On" setting is cheapest_item or most_expensive,
+     * only apply the discount to that specific cart item and zero out all others.
+     */
+    public function apply_discount_on_filter( $discount, $discounting_amount, $cart_item, $single, $coupon ) {
+        $apply_on = get_post_meta( $coupon->get_id(), self::META_APPLY_DISCOUNT_ON, true );
+        if ( empty( $apply_on ) || $apply_on === 'all_qualifying' ) {
+            return $discount;
+        }
+
+        // Only applies to percentage and fixed_product discount types.
+        $type = $coupon->get_discount_type();
+        if ( ! in_array( $type, [ 'percent', 'fixed_product' ], true ) ) {
+            return $discount;
+        }
+
+        // Find the target cart item (cheapest or most expensive).
+        $target_item_key = $this->find_target_cart_item( $coupon, $apply_on );
+        if ( ! $target_item_key ) {
+            return $discount;
+        }
+
+        // Identify the current cart item's key.
+        $current_key = $this->get_cart_item_key_for_item( $cart_item );
+        if ( $current_key !== $target_item_key ) {
+            return 0; // Not the target item — no discount.
+        }
+
+        return $discount;
+    }
+
+    /**
+     * Find the cheapest or most expensive qualifying cart item key.
+     */
+    private function find_target_cart_item( $coupon, $mode ) {
+        if ( ! WC()->cart ) {
+            return null;
+        }
+
+        $target_key   = null;
+        $target_price = null;
+
+        foreach ( WC()->cart->get_cart() as $key => $item ) {
+            $product = $item['data'];
+            if ( ! $product ) {
+                continue;
+            }
+
+            // Check if this product is valid for the coupon.
+            if ( ! $coupon->is_valid_for_product( $product, $item ) ) {
+                continue;
+            }
+
+            $price = (float) $product->get_price();
+            if ( $mode === 'cheapest_item' ) {
+                if ( null === $target_price || $price < $target_price ) {
+                    $target_price = $price;
+                    $target_key   = $key;
+                }
+            } elseif ( $mode === 'most_expensive' ) {
+                if ( null === $target_price || $price > $target_price ) {
+                    $target_price = $price;
+                    $target_key   = $key;
+                }
+            }
+        }
+
+        return $target_key;
+    }
+
+    /**
+     * Get the cart key for a given cart item array.
+     */
+    private function get_cart_item_key_for_item( $cart_item ) {
+        if ( ! WC()->cart ) {
+            return null;
+        }
+        foreach ( WC()->cart->get_cart() as $key => $item ) {
+            if ( $item === $cart_item ) {
+                return $key;
+            }
+        }
+        // Fallback: match by product ID + variation.
+        $pid = isset( $cart_item['product_id'] ) ? $cart_item['product_id'] : 0;
+        $vid = isset( $cart_item['variation_id'] ) ? $cart_item['variation_id'] : 0;
+        foreach ( WC()->cart->get_cart() as $key => $item ) {
+            if ( $item['product_id'] === $pid && $item['variation_id'] === $vid ) {
+                return $key;
+            }
+        }
+        return null;
+    }
+
+    // =========================================================================
+    // Max Discount Cap
+    // =========================================================================
+
+    /**
+     * Cap the discount amount if a max discount is set for the coupon.
+     * Tracks cumulative discount across cart items via a static variable.
+     */
+    public function cap_max_discount( $discount, $discounting_amount, $cart_item, $single, $coupon ) {
+        $max = get_post_meta( $coupon->get_id(), self::META_MAX_DISCOUNT, true );
+        if ( empty( $max ) || (float) $max <= 0 ) {
+            return $discount;
+        }
+        $max = (float) $max;
+
+        // Track cumulative discount for this coupon across all cart items.
+        static $totals = [];
+        $coupon_id = $coupon->get_id();
+        if ( ! isset( $totals[ $coupon_id ] ) ) {
+            $totals[ $coupon_id ] = 0;
+        }
+
+        $remaining = $max - $totals[ $coupon_id ];
+        if ( $remaining <= 0 ) {
+            return 0;
+        }
+
+        $capped = min( $discount, $remaining );
+        $totals[ $coupon_id ] += $capped;
+        return $capped;
     }
 
     // =========================================================================
@@ -1372,18 +1567,84 @@ class KDNA_Smart_Coupons {
             return;
         }
 
+        // Action discount settings.
+        $action_discount_amount = (float) get_post_meta( $coupon->get_id(), self::META_ACTION_DISCOUNT_AMOUNT, true );
+        $action_discount_type   = get_post_meta( $coupon->get_id(), self::META_ACTION_DISCOUNT_TYPE, true );
+
+        $added_keys = [];
         foreach ( $product_ids as $product_id ) {
             $product = wc_get_product( $product_id );
             if ( ! $product || ! $product->is_in_stock() ) {
                 continue;
             }
-            WC()->cart->add_to_cart( $product_id, $qty );
+            $cart_item_key = WC()->cart->add_to_cart( $product_id, $qty );
+            if ( $cart_item_key ) {
+                $added_keys[] = $cart_item_key;
+            }
+        }
+
+        // Apply action discount to auto-added items by adjusting their prices.
+        if ( $action_discount_amount > 0 && ! empty( $added_keys ) && ! empty( $action_discount_type ) ) {
+            foreach ( $added_keys as $key ) {
+                $cart_item = WC()->cart->get_cart_item( $key );
+                if ( ! $cart_item || ! isset( $cart_item['data'] ) ) {
+                    continue;
+                }
+                $product       = $cart_item['data'];
+                $original_price = (float) $product->get_price();
+                $new_price     = $original_price;
+
+                if ( $action_discount_type === 'percent' ) {
+                    $new_price = $original_price - ( $original_price * ( $action_discount_amount / 100 ) );
+                } elseif ( $action_discount_type === 'fixed' ) {
+                    $new_price = $original_price - $action_discount_amount;
+                } elseif ( $action_discount_type === 'free' ) {
+                    $new_price = 0;
+                }
+
+                $product->set_price( max( 0, $new_price ) );
+
+                // Mark the cart item so we can re-apply the discount on recalculation.
+                WC()->cart->cart_contents[ $key ]['_kdna_sc_action_discount'] = [
+                    'amount'         => $action_discount_amount,
+                    'type'           => $action_discount_type,
+                    'original_price' => $original_price,
+                ];
+            }
         }
 
         // Display action message.
         $message = get_post_meta( $coupon->get_id(), self::META_ACTION_MESSAGE, true );
         if ( $message ) {
             wc_add_notice( wp_kses_post( $message ), 'success' );
+        }
+    }
+
+    /**
+     * Re-apply action discounts to auto-added products during cart recalculation.
+     * Hooked to woocommerce_before_calculate_totals.
+     */
+    public function reapply_action_discounts( $cart ) {
+        if ( is_admin() && ! defined( 'DOING_AJAX' ) ) {
+            return;
+        }
+        foreach ( $cart->get_cart() as $key => $item ) {
+            if ( empty( $item['_kdna_sc_action_discount'] ) ) {
+                continue;
+            }
+            $disc           = $item['_kdna_sc_action_discount'];
+            $original_price = (float) $disc['original_price'];
+            $new_price      = $original_price;
+
+            if ( $disc['type'] === 'percent' ) {
+                $new_price = $original_price - ( $original_price * ( $disc['amount'] / 100 ) );
+            } elseif ( $disc['type'] === 'fixed' ) {
+                $new_price = $original_price - $disc['amount'];
+            } elseif ( $disc['type'] === 'free' ) {
+                $new_price = 0;
+            }
+
+            $item['data']->set_price( max( 0, $new_price ) );
         }
     }
 
@@ -1441,9 +1702,20 @@ class KDNA_Smart_Coupons {
         if ( $coupon->get_discount_type() !== 'store_credit' ) {
             return $discount;
         }
-        if ( wc_prices_include_tax() ) {
-            return $discount;
+
+        // When prices do NOT include tax, the discount should apply to the
+        // item price + tax so the store credit covers the full cost.
+        if ( ! wc_prices_include_tax() && $cart_item && isset( $cart_item['data'] ) ) {
+            $product = $cart_item['data'];
+            if ( $product && wc_tax_enabled() ) {
+                $tax_rates   = WC_Tax::get_rates( $product->get_tax_class() );
+                $item_taxes  = WC_Tax::calc_tax( $discounting_amount, $tax_rates, false );
+                $tax_amount  = array_sum( $item_taxes );
+                // Increase the discount to cover the tax portion.
+                $discount = min( $coupon->get_amount(), $discounting_amount + $tax_amount );
+            }
         }
+
         return $discount;
     }
 
@@ -1568,6 +1840,14 @@ class KDNA_Smart_Coupons {
             $unit = get_post_meta( $template->get_id(), self::META_VALIDITY_UNIT, true ) ?: 'days';
             $expiry = new WC_DateTime();
             $expiry->modify( "+{$validity} {$unit}" );
+
+            // Apply expiry time if set on the template.
+            $expiry_time = get_post_meta( $template->get_id(), self::META_EXPIRY_TIME, true );
+            if ( $expiry_time && preg_match( '/^\d{1,2}:\d{2}$/', $expiry_time ) ) {
+                list( $h, $m ) = explode( ':', $expiry_time );
+                $expiry->setTime( absint( $h ), absint( $m ), 0 );
+            }
+
             $new->set_date_expires( $expiry );
         }
 
@@ -1667,25 +1947,108 @@ class KDNA_Smart_Coupons {
     }
 
     private function build_coupon_email_html( $coupon, $order ) {
-        $s = self::get_settings();
+        $s        = self::get_settings();
+        $bg       = $s['custom_bg_color'] ?: '#39cccc';
+        $fg       = $s['custom_fg_color'] ?: '#30050b';
+        $third    = $s['custom_third_color'] ?: $bg;
+        $design   = $s['coupon_email_design'] ?: 'email-coupon';
+        $code     = strtoupper( $coupon->get_code() );
+        $amount_text = $coupon->get_discount_type() === 'percent'
+            ? round( $coupon->get_amount() ) . '%'
+            : wp_strip_all_tags( wc_price( $coupon->get_amount() ) );
+
         ob_start();
         ?>
         <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;">
-            <h2><?php esc_html_e( 'You have received a coupon!', 'kdna-ecommerce' ); ?></h2>
-            <div style="background:<?php echo esc_attr( $s['custom_bg_color'] ); ?>;color:<?php echo esc_attr( $s['custom_fg_color'] ); ?>;padding:20px;border-radius:8px;text-align:center;">
-                <p style="font-size:24px;font-weight:bold;margin:0;">
-                    <?php echo $coupon->get_discount_type() === 'percent' ? round( $coupon->get_amount() ) . '%' : wc_price( $coupon->get_amount() ); ?>
-                    <?php esc_html_e( 'DISCOUNT', 'kdna-ecommerce' ); ?>
-                </p>
-                <p style="font-family:monospace;font-size:18px;margin:10px 0;"><?php echo esc_html( strtoupper( $coupon->get_code() ) ); ?></p>
-                <?php if ( $coupon->get_date_expires() ) : ?>
-                    <p style="font-size:12px;margin:5px 0;"><?php printf( esc_html__( 'Expires: %s', 'kdna-ecommerce' ), esc_html( $coupon->get_date_expires()->date_i18n( wc_date_format() ) ) ); ?></p>
-                <?php endif; ?>
-            </div>
+            <h2 style="text-align:center;"><?php esc_html_e( 'You have received a coupon!', 'kdna-ecommerce' ); ?></h2>
+
+            <?php if ( $design === 'email-coupon-minimal' ) : ?>
+                <!-- Minimal design -->
+                <div style="border:1px solid <?php echo esc_attr( $bg ); ?>;border-radius:8px;padding:25px;text-align:center;">
+                    <p style="font-size:28px;font-weight:bold;margin:0;color:<?php echo esc_attr( $fg ); ?>;">
+                        <?php echo esc_html( $amount_text ); ?> <?php esc_html_e( 'OFF', 'kdna-ecommerce' ); ?>
+                    </p>
+                    <p style="font-family:monospace;font-size:20px;margin:12px 0;padding:10px;background:#f7f7f7;border-radius:4px;letter-spacing:3px;"><?php echo esc_html( $code ); ?></p>
+                    <?php if ( $coupon->get_date_expires() ) : ?>
+                        <p style="font-size:12px;color:#999;margin:5px 0;"><?php printf( esc_html__( 'Valid until %s', 'kdna-ecommerce' ), esc_html( $coupon->get_date_expires()->date_i18n( wc_date_format() ) ) ); ?></p>
+                    <?php endif; ?>
+                </div>
+
+            <?php elseif ( $design === 'email-coupon-banner' ) : ?>
+                <!-- Banner design -->
+                <div style="background:<?php echo esc_attr( $bg ); ?>;color:<?php echo esc_attr( $fg ); ?>;padding:30px 20px;border-radius:8px;text-align:center;position:relative;overflow:hidden;">
+                    <div style="position:relative;z-index:1;">
+                        <p style="font-size:14px;margin:0 0 5px;text-transform:uppercase;opacity:0.8;"><?php esc_html_e( 'Your exclusive discount', 'kdna-ecommerce' ); ?></p>
+                        <p style="font-size:36px;font-weight:bold;margin:0;">
+                            <?php echo esc_html( $amount_text ); ?> <?php esc_html_e( 'OFF', 'kdna-ecommerce' ); ?>
+                        </p>
+                        <p style="font-family:monospace;font-size:20px;margin:15px 0;padding:10px 20px;background:rgba(255,255,255,0.2);border-radius:4px;display:inline-block;letter-spacing:3px;"><?php echo esc_html( $code ); ?></p>
+                        <?php if ( $coupon->get_date_expires() ) : ?>
+                            <p style="font-size:12px;margin:10px 0 0;opacity:0.8;"><?php printf( esc_html__( 'Expires: %s', 'kdna-ecommerce' ), esc_html( $coupon->get_date_expires()->date_i18n( wc_date_format() ) ) ); ?></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+
+            <?php elseif ( $design === 'email-coupon-ticket' ) : ?>
+                <!-- Ticket / dashed-border design -->
+                <div style="border:3px dashed <?php echo esc_attr( $bg ); ?>;border-radius:12px;padding:25px;text-align:center;background:<?php echo esc_attr( $third ); ?>15;">
+                    <p style="font-size:14px;color:<?php echo esc_attr( $bg ); ?>;text-transform:uppercase;font-weight:bold;margin:0 0 8px;"><?php esc_html_e( 'Coupon Code', 'kdna-ecommerce' ); ?></p>
+                    <p style="font-family:monospace;font-size:24px;font-weight:bold;margin:0;color:<?php echo esc_attr( $fg ); ?>;letter-spacing:3px;"><?php echo esc_html( $code ); ?></p>
+                    <hr style="border:none;border-top:1px dashed <?php echo esc_attr( $bg ); ?>;margin:15px 0;" />
+                    <p style="font-size:20px;font-weight:bold;margin:0;color:<?php echo esc_attr( $fg ); ?>;">
+                        <?php echo esc_html( $amount_text ); ?> <?php esc_html_e( 'DISCOUNT', 'kdna-ecommerce' ); ?>
+                    </p>
+                    <?php if ( $coupon->get_date_expires() ) : ?>
+                        <p style="font-size:12px;color:#999;margin:10px 0 0;"><?php printf( esc_html__( 'Expires: %s', 'kdna-ecommerce' ), esc_html( $coupon->get_date_expires()->date_i18n( wc_date_format() ) ) ); ?></p>
+                    <?php endif; ?>
+                </div>
+
+            <?php else : ?>
+                <!-- Default design (email-coupon) -->
+                <div style="background:<?php echo esc_attr( $bg ); ?>;color:<?php echo esc_attr( $fg ); ?>;padding:20px;border-radius:8px;text-align:center;">
+                    <p style="font-size:24px;font-weight:bold;margin:0;">
+                        <?php echo esc_html( $amount_text ); ?>
+                        <?php esc_html_e( 'DISCOUNT', 'kdna-ecommerce' ); ?>
+                    </p>
+                    <p style="font-family:monospace;font-size:18px;margin:10px 0;"><?php echo esc_html( $code ); ?></p>
+                    <?php if ( $coupon->get_date_expires() ) : ?>
+                        <p style="font-size:12px;margin:5px 0;"><?php printf( esc_html__( 'Expires: %s', 'kdna-ecommerce' ), esc_html( $coupon->get_date_expires()->date_i18n( wc_date_format() ) ) ); ?></p>
+                    <?php endif; ?>
+                </div>
+            <?php endif; ?>
+
             <?php
+            // Coupon message.
             $msg = get_post_meta( $coupon->get_id(), self::META_COUPON_MESSAGE, true );
             if ( $msg ) {
                 echo '<div style="margin-top:15px;">' . wp_kses_post( $msg ) . '</div>';
+            }
+
+            // Action message — include in email if the setting is enabled.
+            $include_action = get_post_meta( $coupon->get_id(), self::META_ACTION_INCLUDE_IN_EMAIL, true );
+            if ( $include_action === 'yes' ) {
+                $action_msg = get_post_meta( $coupon->get_id(), self::META_ACTION_MESSAGE, true );
+                if ( $action_msg ) {
+                    echo '<div style="margin-top:15px;padding:15px;background:#f0f9ff;border-left:4px solid ' . esc_attr( $bg ) . ';border-radius:4px;">';
+                    echo wp_kses_post( $action_msg );
+                    echo '</div>';
+                }
+
+                // Show the products that will be added to cart.
+                $action_products = get_post_meta( $coupon->get_id(), self::META_ACTION_ADD_PRODUCTS, true );
+                if ( ! empty( $action_products ) && is_array( $action_products ) ) {
+                    echo '<div style="margin-top:10px;font-size:13px;color:#666;">';
+                    echo '<strong>' . esc_html__( 'Included products:', 'kdna-ecommerce' ) . '</strong> ';
+                    $names = [];
+                    foreach ( $action_products as $pid ) {
+                        $p = wc_get_product( $pid );
+                        if ( $p ) {
+                            $names[] = $p->get_name();
+                        }
+                    }
+                    echo esc_html( implode( ', ', $names ) );
+                    echo '</div>';
+                }
             }
             ?>
         </div>
@@ -1975,8 +2338,9 @@ class KDNA_Smart_Coupons {
             'post_status'    => 'publish',
             'posts_per_page' => 20,
             'meta_query'     => [
+                'relation' => 'AND',
                 [
-                    'key'     => 'customer_email',
+                    'key'     => '_email_restrictions',
                     'value'   => $email,
                     'compare' => 'LIKE',
                 ],
