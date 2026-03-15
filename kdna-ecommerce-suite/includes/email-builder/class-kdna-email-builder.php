@@ -38,6 +38,7 @@ class KDNA_Email_Builder {
         'order_items' => [ 'label' => 'Order Items',    'icon' => 'dashicons-list-view' ],
         'blank_row'   => [ 'label' => 'Blank Row',      'icon' => 'dashicons-editor-contract' ],
         'content'     => [ 'label' => 'Content',        'icon' => 'dashicons-email-alt' ],
+        'woo_content' => [ 'label' => 'WooCommerce Content', 'icon' => 'dashicons-cart' ],
     ];
 
     private static $instance = null;
@@ -59,6 +60,64 @@ class KDNA_Email_Builder {
         add_action( 'wp_ajax_kdna_email_builder_delete', [ $this, 'ajax_delete' ] );
         add_action( 'wp_ajax_kdna_email_builder_duplicate', [ $this, 'ajax_duplicate' ] );
         add_action( 'wp_ajax_kdna_email_builder_upload_image', [ $this, 'ajax_upload_image' ] );
+
+        // WooCommerce email integration.
+        add_filter( 'woocommerce_mail_content', [ $this, 'wrap_woo_email' ] );
+    }
+
+    /**
+     * Wrap WooCommerce transactional email content with a builder template.
+     *
+     * Hooks into woocommerce_mail_content to replace WooCommerce's default
+     * header/footer with the selected builder template. The template must
+     * contain a {woo_email_content} placeholder (via the WooCommerce Content block).
+     */
+    public function wrap_woo_email( $html ) {
+        $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
+        if ( ! $template_id ) {
+            return $html;
+        }
+
+        $json = get_post_meta( $template_id, self::META_JSON, true );
+        if ( ! $json ) {
+            return $html;
+        }
+
+        $structure = json_decode( $json, true );
+        if ( ! $structure ) {
+            return $html;
+        }
+
+        // Check if the template actually uses the woo_content block.
+        $has_woo_block = false;
+        foreach ( ( $structure['rows'] ?? [] ) as $row ) {
+            foreach ( ( $row['blocks'] ?? [] ) as $block ) {
+                if ( ( $block['type'] ?? '' ) === 'woo_content' ) {
+                    $has_woo_block = true;
+                    break 2;
+                }
+            }
+        }
+
+        if ( ! $has_woo_block ) {
+            return $html;
+        }
+
+        // Extract the <body> content from WooCommerce's email HTML.
+        $body_content = $html;
+        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $matches ) ) {
+            $body_content = $matches[1];
+        }
+
+        $compiled = self::compile_to_html( $structure, [
+            'woo_email_content' => $body_content,
+            'store_name'        => get_bloginfo( 'name' ),
+            'store_url'         => home_url(),
+            'site_title'        => get_bloginfo( 'name' ),
+            'unsubscribe_url'   => '#',
+        ] );
+
+        return $compiled;
     }
 
     public function register_post_type() {
@@ -267,9 +326,23 @@ class KDNA_Email_Builder {
             'content' => [
                 'padding' => '10px 20px',
             ],
+            'woo_content' => [
+                'padding' => '10px 20px',
+            ],
         ];
 
         return $defaults[ $type ] ?? [];
+    }
+
+    /**
+     * Escape a value for use inside a CSS style block.
+     * Unlike esc_attr(), this preserves single quotes (needed for font-family)
+     * while stripping characters that could break out of a style context.
+     */
+    private static function esc_css( $value ) {
+        $value = str_replace( [ '<', '>', '&' ], '', $value );
+        $value = preg_replace( '/[;\{\}]/', '', $value );
+        return $value;
     }
 
     /**
@@ -296,24 +369,28 @@ class KDNA_Email_Builder {
         $preheader   = $s['preheader'] ?? '';
 
         $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
-        $html .= '<style>body{margin:0;padding:0;background:' . esc_attr( $bg ) . ';font-family:' . esc_attr( $font_family ) . ';font-size:' . esc_attr( $font_size ) . ';line-height:' . esc_attr( $line_height ) . ';color:' . esc_attr( $text_color ) . ';}';
-        $html .= 'a{color:' . esc_attr( $link_color ) . ';}';
+        $html .= '<style>body{margin:0;padding:0;background:' . self::esc_css( $bg ) . ';font-family:' . self::esc_css( $font_family ) . ';font-size:' . self::esc_css( $font_size ) . ';line-height:' . self::esc_css( $line_height ) . ';color:' . self::esc_css( $text_color ) . ';}';
+        $html .= 'a{color:' . self::esc_css( $link_color ) . ';}';
         $html .= 'img{max-width:100%;height:auto;}';
         $html .= 'table{border-collapse:collapse;}';
         $html .= '.email-row{width:100%;}';
         $mobile_css = self::collect_mobile_css( $structure );
-        if ( $mobile_css ) {
-            $html .= '@media only screen and (max-width:480px){' . $mobile_css . '}';
-        }
+        $html .= '@media only screen and (max-width:480px){';
+        $html .= '.email-content{width:100% !important;}';
+        $html .= '.email-content td{display:block !important;width:100% !important;}';
+        $html .= 'img{max-width:100% !important;height:auto !important;}';
+        $html .= $mobile_css;
+        $html .= '}';
         $html .= '</style></head><body>';
 
         if ( $preheader ) {
             $html .= '<div style="display:none;font-size:1px;color:' . esc_attr( $bg ) . ';line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">' . esc_html( $preheader ) . '</div>';
         }
 
+        $font_style = 'font-family:' . $font_family . ';font-size:' . esc_attr( $font_size ) . ';line-height:' . esc_attr( $line_height ) . ';color:' . esc_attr( $text_color ) . ';';
         $html .= '<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:' . esc_attr( $bg ) . ';">';
-        $html .= '<tr><td align="center" style="padding:' . esc_attr( $padding ) . ';">';
-        $html .= '<table width="' . intval( $width ) . '" cellpadding="0" cellspacing="0" role="presentation" style="background:' . esc_attr( $content_bg ) . ';border-radius:' . esc_attr( $s['border_radius'] ?? '0px' ) . ';overflow:hidden;max-width:100%;">';
+        $html .= '<tr><td align="center" style="padding:' . esc_attr( $padding ) . ';' . $font_style . '">';
+        $html .= '<table class="email-content" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;max-width:' . intval( $width ) . 'px;background:' . esc_attr( $content_bg ) . ';border-radius:' . esc_attr( $s['border_radius'] ?? '0px' ) . ';overflow:hidden;">';
 
         foreach ( ( $structure['rows'] ?? [] ) as $row_index => $row ) {
             $html .= self::compile_row( $row, $s, $row_index );
@@ -375,7 +452,7 @@ class KDNA_Email_Builder {
 
             case 'image':
                 $align = $p['text_align'] ?? 'center';
-                $img   = '<img src="' . esc_url( $p['src'] ?? '' ) . '" alt="' . esc_attr( $p['alt'] ?? '' ) . '" style="width:' . esc_attr( $p['width'] ?? '100%' ) . ';display:inline-block;" />';
+                $img   = '<img src="' . esc_url( $p['src'] ?? '' ) . '" alt="' . esc_attr( $p['alt'] ?? '' ) . '" style="width:' . esc_attr( $p['width'] ?? '100%' ) . ';max-width:100%;height:auto;display:inline-block;" />';
                 if ( ! empty( $p['href'] ) ) {
                     $img = '<a href="' . esc_url( $p['href'] ) . '">' . $img . '</a>';
                 }
@@ -452,7 +529,7 @@ class KDNA_Email_Builder {
 
             case 'logo':
                 $align = $p['text_align'] ?? 'center';
-                $img   = '<img src="' . esc_url( $p['src'] ?? '' ) . '" alt="Logo" style="width:' . esc_attr( $p['width'] ?? '150px' ) . ';" />';
+                $img   = '<img src="' . esc_url( $p['src'] ?? '' ) . '" alt="Logo" style="width:' . esc_attr( $p['width'] ?? '150px' ) . ';max-width:100%;height:auto;" />';
                 if ( ! empty( $p['href'] ) ) {
                     $img = '<a href="' . esc_url( $p['href'] ) . '">' . $img . '</a>';
                 }
@@ -509,6 +586,10 @@ class KDNA_Email_Builder {
 
             case 'content':
                 $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">{email_content}</div>';
+                break;
+
+            case 'woo_content':
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">{woo_email_content}</div>';
                 break;
         }
 
@@ -651,7 +732,7 @@ class KDNA_Email_Builder {
 
         $post_data = [
             'post_title'   => $name,
-            'post_content' => $json,
+            'post_content' => wp_slash( $json ),
             'post_type'    => self::POST_TYPE,
             'post_status'  => 'publish',
         ];
@@ -667,12 +748,21 @@ class KDNA_Email_Builder {
             wp_send_json_error( $template_id->get_error_message() );
         }
 
-        update_post_meta( $template_id, self::META_JSON, $json );
+        update_post_meta( $template_id, self::META_JSON, wp_slash( $json ) );
         update_post_meta( $template_id, self::META_CSS, $custom_css );
 
         // Generate compiled HTML and store it.
         $compiled = self::compile_to_html( $decoded );
         update_post_meta( $template_id, '_kdna_email_compiled_html', $compiled );
+
+        // WooCommerce email template toggle.
+        $use_for_woo = sanitize_text_field( $_POST['use_for_woo'] ?? '0' );
+        if ( $use_for_woo === '1' ) {
+            update_option( 'kdna_woo_email_template_id', $template_id );
+        } elseif ( (int) get_option( 'kdna_woo_email_template_id', 0 ) === $template_id ) {
+            // Unchecked and this was the active WooCommerce template — clear it.
+            update_option( 'kdna_woo_email_template_id', 0 );
+        }
 
         wp_send_json_success( [
             'template_id' => $template_id,
@@ -705,6 +795,16 @@ class KDNA_Email_Builder {
             'coupon_amount'       => '20%',
             'coupon_expiry'       => 'Expires in 30 days',
             'unsubscribe_url'     => '#',
+            'woo_email_content'   => '<div style="padding:15px;border:1px solid #e0e0e0;border-radius:4px;margin:10px 0;">'
+                . '<h2 style="margin:0 0 10px;font-size:18px;">Order #1234</h2>'
+                . '<table width="100%" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-size:13px;">'
+                . '<tr style="background:#f7f7f7;"><td style="border:1px solid #e0e0e0;"><strong>Product</strong></td><td style="border:1px solid #e0e0e0;text-align:center;"><strong>Qty</strong></td><td style="border:1px solid #e0e0e0;text-align:right;"><strong>Price</strong></td></tr>'
+                . '<tr><td style="border:1px solid #e0e0e0;">Sample Product</td><td style="border:1px solid #e0e0e0;text-align:center;">1</td><td style="border:1px solid #e0e0e0;text-align:right;">$49.99</td></tr>'
+                . '<tr><td style="border:1px solid #e0e0e0;">Another Item</td><td style="border:1px solid #e0e0e0;text-align:center;">2</td><td style="border:1px solid #e0e0e0;text-align:right;">$25.00</td></tr>'
+                . '<tr style="background:#f7f7f7;"><td colspan="2" style="border:1px solid #e0e0e0;text-align:right;"><strong>Total:</strong></td><td style="border:1px solid #e0e0e0;text-align:right;"><strong>$99.99</strong></td></tr>'
+                . '</table>'
+                . '<p style="margin:15px 0 5px;font-size:13px;"><strong>Billing address:</strong><br>John Doe<br>123 Sample St<br>Sydney NSW 2000</p>'
+                . '</div>',
         ];
 
         $html = self::compile_to_html( $decoded, $sample_vars );
@@ -920,6 +1020,48 @@ class KDNA_Email_Builder {
                 </tbody>
             </table>
         <?php endif;
+
+        // WooCommerce email template selector.
+        $this->render_woo_email_settings( $templates ?? [] );
+    }
+
+    /**
+     * Render the WooCommerce email template selector on the template list page.
+     */
+    private function render_woo_email_settings( $templates ) {
+        if ( ! class_exists( 'WooCommerce' ) ) {
+            return;
+        }
+
+        // Handle save.
+        if ( isset( $_POST['kdna_woo_email_template_save'] ) && check_admin_referer( 'kdna_woo_email_template_nonce' ) ) {
+            update_option( 'kdna_woo_email_template_id', intval( $_POST['kdna_woo_email_template_id'] ?? 0 ) );
+            echo '<div class="notice notice-success is-dismissible"><p>' . esc_html__( 'WooCommerce email template setting saved.', 'kdna-ecommerce' ) . '</p></div>';
+        }
+
+        $current_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
+        ?>
+        <hr style="margin:30px 0 20px;">
+        <h2><?php esc_html_e( 'WooCommerce Email Template', 'kdna-ecommerce' ); ?></h2>
+        <p class="description"><?php esc_html_e( 'Select a template to wrap WooCommerce transactional emails (order confirmation, shipping, etc.). The template must contain a "WooCommerce Content" block where the order details will be inserted.', 'kdna-ecommerce' ); ?></p>
+        <form method="post">
+            <?php wp_nonce_field( 'kdna_woo_email_template_nonce' ); ?>
+            <table class="form-table">
+                <tr>
+                    <th scope="row"><label for="kdna_woo_email_template_id"><?php esc_html_e( 'Template', 'kdna-ecommerce' ); ?></label></th>
+                    <td>
+                        <select name="kdna_woo_email_template_id" id="kdna_woo_email_template_id">
+                            <option value="0"><?php esc_html_e( '— None (use WooCommerce default) —', 'kdna-ecommerce' ); ?></option>
+                            <?php foreach ( $templates as $tpl ) : ?>
+                                <option value="<?php echo esc_attr( $tpl->ID ); ?>" <?php selected( $current_id, $tpl->ID ); ?>><?php echo esc_html( $tpl->post_title ); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </td>
+                </tr>
+            </table>
+            <?php submit_button( __( 'Save WooCommerce Template', 'kdna-ecommerce' ), 'secondary', 'kdna_woo_email_template_save' ); ?>
+        </form>
+        <?php
     }
 
     private function render_builder( $template_id = 0 ) {
@@ -942,6 +1084,7 @@ class KDNA_Email_Builder {
         ?>
         <h1><?php echo $template_id ? esc_html__( 'Edit Email Template', 'kdna-ecommerce' ) : esc_html__( 'New Email Template', 'kdna-ecommerce' ); ?></h1>
 
+        <?php $is_woo_template = ( (int) get_option( 'kdna_woo_email_template_id', 0 ) === $template_id && $template_id > 0 ); ?>
         <div id="kdna-email-builder"
              data-nonce="<?php echo esc_attr( wp_create_nonce( self::NONCE_ACTION ) ); ?>"
              data-template-id="<?php echo esc_attr( $template_id ); ?>"
@@ -949,7 +1092,8 @@ class KDNA_Email_Builder {
              data-json="<?php echo esc_attr( $json_data ); ?>"
              data-css="<?php echo esc_attr( $css ); ?>"
              data-blocks="<?php echo esc_attr( wp_json_encode( self::get_block_definitions() ) ); ?>"
-             data-ajax-url="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>">
+             data-ajax-url="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>"
+             data-woo-template="<?php echo $is_woo_template ? '1' : '0'; ?>">
 
             <!-- Builder UI rendered by JS -->
             <div class="kdna-etb-loading">

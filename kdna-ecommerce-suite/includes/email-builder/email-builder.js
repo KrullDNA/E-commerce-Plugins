@@ -97,6 +97,7 @@
             // Toolbar
             html += '<div class="kdna-etb-toolbar">';
             html += '<input type="text" class="kdna-etb-name" value="' + this.escAttr(this.el.data('template-name') || 'Untitled Template') + '" placeholder="Template name" />';
+            html += '<label class="kdna-etb-woo-toggle" title="Use this template for all WooCommerce transactional emails"><input type="checkbox" class="kdna-etb-woo-checkbox"' + (this.el.data('woo-template') == '1' ? ' checked' : '') + ' /> <span class="dashicons dashicons-cart"></span> WooCommerce</label>';
             html += '<div class="kdna-etb-device-toggle">';
             html += '<button class="kdna-etb-device-btn active" data-device="desktop" title="Desktop"><span class="dashicons dashicons-desktop"></span></button>';
             html += '<button class="kdna-etb-device-btn" data-device="mobile" title="Mobile"><span class="dashicons dashicons-smartphone"></span></button>';
@@ -106,7 +107,7 @@
             html += '</div>';
 
             // Email Frame
-            html += '<div class="kdna-etb-email-frame" style="max-width:' + parseInt(this.structure.settings.width) + 'px;">';
+            html += '<div class="kdna-etb-email-frame" style="max-width:' + (parseInt(this.structure.settings.width) + 60) + 'px;">';
             html += '<div class="kdna-etb-email-body" style="background:' + (this.structure.settings.content_bg_color || '#fff') + ';padding:' + (this.structure.settings.padding || '0px') + ';">';
             html += this.renderRows();
             html += '</div></div>';
@@ -266,6 +267,14 @@
                     html += '<span class="dashicons dashicons-email-alt" style="font-size:28px;color:#0073aa;"></span>';
                     html += '<p style="margin:8px 0 4px;font-weight:600;color:#333;">Email Content</p>';
                     html += '<small style="color:#666;">Personalised email body content<br>(Hi {customer_first_name}, ...)</small>';
+                    html += '</div></div>';
+                    break;
+                case 'woo_content':
+                    html += '<div style="padding:' + (p.padding || '10px 20px') + ';border:1px dashed #9b59b6;border-radius:4px;background:#f5f0ff;">';
+                    html += '<div style="text-align:center;padding:15px 10px;">';
+                    html += '<span class="dashicons dashicons-cart" style="font-size:28px;color:#9b59b6;"></span>';
+                    html += '<p style="margin:8px 0 4px;font-weight:600;color:#333;">WooCommerce Email Content</p>';
+                    html += '<small style="color:#666;">Order details, items table, addresses, etc.<br>Rendered by WooCommerce at send time</small>';
                     html += '</div></div>';
                     break;
                 default:
@@ -456,6 +465,10 @@
                     html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
                     html += '<p class="description" style="margin-top:8px;">This block inserts the personalised email body content that is written when creating a follow-up email (e.g. Hi {customer_first_name}, ...).</p>';
                     break;
+                case 'woo_content':
+                    html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
+                    html += '<p class="description" style="margin-top:8px;">This block inserts WooCommerce email content (order details, items table, customer addresses, etc.). Use this when applying the template to WooCommerce transactional emails.</p>';
+                    break;
                 default:
                     html += '<p>No settings available for this block type.</p>';
             }
@@ -630,6 +643,9 @@
                 case 'content':
                     html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
                     break;
+                case 'woo_content':
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    break;
                 default:
                     html += '<p>No mobile settings available for this block type.</p>';
             }
@@ -654,6 +670,12 @@
             // Block drag
             this.el.on('dragstart', '.kdna-etb-block-item', function (e) {
                 e.originalEvent.dataTransfer.setData('block-type', $(this).data('type'));
+                self._dragging = true;
+            });
+
+            this.el.on('dragend', '.kdna-etb-block-item', function () {
+                // Delay reset so the click event that follows dragend is still suppressed.
+                setTimeout(function () { self._dragging = false; }, 50);
             });
 
             // Drop zone
@@ -664,6 +686,7 @@
                 $(this).removeClass('drag-over');
             }).on('drop', '.kdna-etb-drop-zone, .kdna-etb-row', function (e) {
                 e.preventDefault();
+                e.stopPropagation();
                 $(this).removeClass('drag-over');
                 var type = e.originalEvent.dataTransfer.getData('block-type');
                 if (type) {
@@ -693,6 +716,7 @@
 
             // Click on a block palette item — add it to the canvas (fallback for non-drag interactions).
             this.el.on('click', '.kdna-etb-block-item', function () {
+                if (self._dragging) return;
                 var type = $(this).data('type');
                 if (!type) return;
                 var defaults = self.blocks[type] ? self.blocks[type].defaults : {};
@@ -834,7 +858,9 @@
                     json: JSON.stringify(self.structure)
                 }, function (resp) {
                     if (resp.success) {
-                        var w = window.open('', 'email_preview', 'width=700,height=600');
+                        var isMobile = self.currentDevice === 'mobile';
+                        var winWidth = isMobile ? 400 : 700;
+                        var w = window.open('', 'email_preview', 'width=' + winWidth + ',height=600');
                         w.document.open();
                         w.document.write(resp.data.html);
                         w.document.close();
@@ -852,7 +878,8 @@
                     template_id: self.templateId,
                     name: self.el.find('.kdna-etb-name').val(),
                     json: JSON.stringify(self.structure),
-                    custom_css: ''
+                    custom_css: '',
+                    use_for_woo: self.el.find('.kdna-etb-woo-checkbox').is(':checked') ? '1' : '0'
                 }, function (resp) {
                     btn.prop('disabled', false).text('Save');
                     if (resp.success) {
@@ -934,10 +961,12 @@
                 'background': this.structure.settings.content_bg_color || '#fff',
                 'padding': this.structure.settings.padding || '0px'
             });
-            if (this.currentDevice === 'mobile') {
+            var isMobile = this.currentDevice === 'mobile';
+            this.el.find('.kdna-etb-canvas').toggleClass('mobile-preview', isMobile);
+            if (isMobile) {
                 frame.css('max-width', '375px');
             } else {
-                frame.css('max-width', parseInt(this.structure.settings.width) + 'px');
+                frame.css('max-width', (parseInt(this.structure.settings.width) + 60) + 'px');
             }
             this.applyFullbleedMargins();
             this.initSortable();
