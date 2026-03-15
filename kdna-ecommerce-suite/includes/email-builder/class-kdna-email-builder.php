@@ -123,40 +123,67 @@ class KDNA_Email_Builder {
      * Extract the actual email content from WooCommerce's fully rendered HTML,
      * stripping WC's header (logo, styled heading bar) and footer (credit).
      *
-     * Targets WC's known HTML IDs in order of specificity:
-     *  1. #body_content_inner — the inner content div (most precise)
-     *  2. #body_content       — the content table cell
-     *  3. <body> extraction   — fallback
+     * Uses string-position lookups against WC's known HTML element IDs rather
+     * than regex, because regex cannot reliably handle nested HTML elements.
      *
      * @param string $html Full WC email HTML.
      * @return string Extracted content.
      */
     private static function extract_woo_content( $html ) {
-        // 1. Try #body_content_inner — WC wraps the actual email content here.
-        if ( preg_match( '/<div[^>]+id=["\']body_content_inner["\'][^>]*>(.*?)<\/div>\s*<\/td>/si', $html, $m ) ) {
-            return trim( $m[1] );
+        // Strategy: find the start of actual content (after WC's header) and
+        // the end of content (before WC's footer), then extract between them.
+
+        // Find content start: look for #body_content_inner opening tag.
+        $content_start = false;
+        $start_id = strpos( $html, 'body_content_inner' );
+        if ( $start_id !== false ) {
+            // Jump past the closing ">" of the element's opening tag.
+            $content_start = strpos( $html, '>', $start_id );
+            if ( $content_start !== false ) {
+                $content_start++;
+            }
         }
 
-        // 2. Try #body_content td — slightly broader.
-        if ( preg_match( '/<td[^>]+id=["\']body_content["\'][^>]*>(.*?)<\/td>/si', $html, $m ) ) {
-            return trim( $m[1] );
+        // Fallback: look for #body_content.
+        if ( $content_start === false ) {
+            $start_id = strpos( $html, '"body_content"' );
+            if ( $start_id === false ) {
+                $start_id = strpos( $html, "'body_content'" );
+            }
+            if ( $start_id !== false ) {
+                $content_start = strpos( $html, '>', $start_id );
+                if ( $content_start !== false ) {
+                    $content_start++;
+                }
+            }
         }
 
-        // 3. Try stripping the WC wrapper: everything inside #wrapper but
-        //    excluding #template_header_image, #template_header, and #credit.
-        if ( preg_match( '/<div[^>]+id=["\']wrapper["\'][^>]*>(.*)<\/div>/si', $html, $m ) ) {
-            $inner = $m[1];
-            // Remove header image (logo).
-            $inner = preg_replace( '/<div[^>]+id=["\']template_header_image["\'][^>]*>.*?<\/div>/si', '', $inner );
-            // Remove styled header bar.
-            $inner = preg_replace( '/<table[^>]+id=["\']template_header["\'][^>]*>.*?<\/table>/si', '', $inner );
-            // Remove credit/footer.
-            $inner = preg_replace( '/<div[^>]+id=["\']credit["\'][^>]*>.*?<\/div>/si', '', $inner );
-            $inner = preg_replace( '/<table[^>]+id=["\']template_footer["\'][^>]*>.*?<\/table>/si', '', $inner );
-            return trim( $inner );
+        // Find content end: look for the first end-marker after content start.
+        $content_end = false;
+        if ( $content_start !== false ) {
+            $end_markers = [ 'template_footer', 'credit' ];
+            foreach ( $end_markers as $marker ) {
+                $pos = strpos( $html, $marker, $content_start );
+                if ( $pos !== false ) {
+                    // Walk backwards from marker to find the opening "<" of its element.
+                    $tag_open = strrpos( substr( $html, 0, $pos ), '<' );
+                    if ( $tag_open !== false ) {
+                        $content_end = $tag_open;
+                        break;
+                    }
+                }
+            }
         }
 
-        // 4. Last resort: extract <body> content.
+        if ( $content_start !== false && $content_end !== false ) {
+            $content = substr( $html, $content_start, $content_end - $content_start );
+            // Strip any trailing </div>, </td>, </tr>, </table> wrapper tags
+            // that belong to WC's table structure, not the actual content.
+            $content = preg_replace( '/(\s*<\/(?:div|td|tr|table)>\s*)+$/si', '', $content );
+            return trim( $content );
+        }
+
+        // Fallback: extract <body> content and try to strip known WC elements.
         if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $m ) ) {
             return trim( $m[1] );
         }
