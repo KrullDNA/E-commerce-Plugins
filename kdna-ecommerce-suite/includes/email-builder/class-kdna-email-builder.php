@@ -63,6 +63,34 @@ class KDNA_Email_Builder {
 
         // WooCommerce email integration.
         add_filter( 'woocommerce_mail_content', [ $this, 'wrap_woo_email' ] );
+
+        // Override WooCommerce email header/footer templates with minimal versions
+        // when a custom KDNA template is active.
+        add_filter( 'woocommerce_locate_template', [ $this, 'override_woo_email_templates' ], 10, 3 );
+    }
+
+    /**
+     * Redirect WooCommerce email-header.php and email-footer.php to minimal
+     * versions so the custom KDNA template provides the wrapper instead.
+     */
+    public function override_woo_email_templates( $template, $template_name, $template_path ) {
+        if ( ! in_array( $template_name, [ 'emails/email-header.php', 'emails/email-footer.php' ], true ) ) {
+            return $template;
+        }
+
+        $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
+        if ( ! $template_id ) {
+            return $template;
+        }
+
+        $override_dir = KDNA_ECOMMERCE_PATH . 'includes/email-builder/woo-overrides/';
+        $override_file = $override_dir . basename( $template_name );
+
+        if ( file_exists( $override_file ) ) {
+            return $override_file;
+        }
+
+        return $template;
     }
 
     /**
@@ -104,9 +132,20 @@ class KDNA_Email_Builder {
         }
 
         // Extract the <body> content from WooCommerce's email HTML.
+        // With our template overrides active, WC outputs a minimal HTML shell
+        // (just <html><body>content</body></html>) so we only need to extract body.
         $body_content = $html;
         if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $matches ) ) {
-            $body_content = $matches[1];
+            $body_content = trim( $matches[1] );
+        }
+
+        // Fallback: if WC templates were not overridden (e.g. theme override takes
+        // priority), strip the WooCommerce wrapper tables to get inner content.
+        if ( preg_match( '/id\s*=\s*["\']body_content_inner["\'][^>]*>(.*)/si', $body_content, $inner ) ) {
+            $inner_html = $inner[1];
+            // Remove trailing closing tags from the WooCommerce wrapper tables.
+            $inner_html = preg_replace( '/(<\/td>\s*<\/tr>\s*<\/table>\s*){2,}.*$/si', '', $inner_html );
+            $body_content = trim( $inner_html );
         }
 
         $compiled = self::compile_to_html( $structure, [
