@@ -63,6 +63,34 @@ class KDNA_Email_Builder {
 
         // WooCommerce email integration.
         add_filter( 'woocommerce_mail_content', [ $this, 'wrap_woo_email' ] );
+
+        // Remove WooCommerce's default email header/footer rendering when a
+        // custom KDNA template is active, so we don't get double headers/footers.
+        add_action( 'woocommerce_init', [ $this, 'maybe_unhook_woo_email_header_footer' ] );
+    }
+
+    /**
+     * If a KDNA email template is active, remove WooCommerce's default
+     * email_header() and email_footer() actions and replace them with
+     * minimal versions that output only a bare HTML shell.
+     */
+    public function maybe_unhook_woo_email_header_footer() {
+        $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
+        if ( ! $template_id ) {
+            return;
+        }
+
+        $mailer = WC()->mailer();
+        remove_action( 'woocommerce_email_header', [ $mailer, 'email_header' ] );
+        remove_action( 'woocommerce_email_footer', [ $mailer, 'email_footer' ] );
+
+        // Add minimal replacements so the email still has valid HTML structure.
+        add_action( 'woocommerce_email_header', function ( $email_heading ) {
+            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>';
+        } );
+        add_action( 'woocommerce_email_footer', function () {
+            echo '</body></html>';
+        } );
     }
 
     /**
@@ -103,10 +131,12 @@ class KDNA_Email_Builder {
             return $html;
         }
 
-        // Extract the <body> content from WooCommerce's email HTML.
+        // Extract only the <body> content. Since we removed WC's email_header
+        // and email_footer actions, the body should contain just the raw email
+        // content without any WC wrapper chrome.
         $body_content = $html;
         if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $matches ) ) {
-            $body_content = $matches[1];
+            $body_content = trim( $matches[1] );
         }
 
         $compiled = self::compile_to_html( $structure, [
