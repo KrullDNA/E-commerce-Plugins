@@ -259,6 +259,7 @@ class KDNA_Email_Builder {
                 'padding'       => '10px 20px',
             ],
             'blank_row' => [
+                'width'    => '100%',
                 'height'   => '40px',
                 'bg_color' => '#f7f7f7',
                 'padding'  => '0px',
@@ -480,7 +481,7 @@ class KDNA_Email_Builder {
                     '</tr><tr><td colspan="3" style="padding:12px;text-align:center;color:#999;font-size:13px;">[Order items rendered at send time]</td></tr></table></div>';
 
             case 'blank_row':
-                return '<div style="height:' . esc_attr( $p['height'] ?? '40px' ) . ';background:' . esc_attr( $p['bg_color'] ?? '#f7f7f7' ) . ';padding:' . esc_attr( $p['padding'] ?? '0px' ) . ';"></div>';
+                return '<div style="width:' . esc_attr( $p['width'] ?? '100%' ) . ';height:' . esc_attr( $p['height'] ?? '40px' ) . ';background:' . esc_attr( $p['bg_color'] ?? '#f7f7f7' ) . ';padding:' . esc_attr( $p['padding'] ?? '0px' ) . ';box-sizing:border-box;"></div>';
 
             case 'content':
                 return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">{email_content}</div>';

@@ -49,7 +49,7 @@
                 text_color: '#333333',
                 link_color: '#0073aa',
                 heading_color: '#1a1a1a',
-                padding: '20px',
+                padding: '0px',
                 border_radius: '0px',
                 preheader: ''
             };
@@ -105,8 +105,8 @@
             html += '</div>';
 
             // Email Frame
-            html += '<div class="kdna-etb-email-frame" style="max-width:' + (parseInt(this.structure.settings.width) + 60) + 'px;">';
-            html += '<div class="kdna-etb-email-body" style="background:' + (this.structure.settings.content_bg_color || '#fff') + ';padding:' + (this.structure.settings.padding || '20px') + ';">';
+            html += '<div class="kdna-etb-email-frame" style="max-width:' + parseInt(this.structure.settings.width) + 'px;">';
+            html += '<div class="kdna-etb-email-body" style="background:' + (this.structure.settings.content_bg_color || '#fff') + ';padding:' + (this.structure.settings.padding || '0px') + ';">';
             html += this.renderRows();
             html += '</div></div>';
 
@@ -116,6 +116,7 @@
             html += '</div>'; // canvas end
 
             this.el.html(html);
+            this.applyFullbleedMargins();
             this.initSortable();
             this.initColorPickers();
         },
@@ -138,12 +139,14 @@
             var blocks = row.blocks || [];
 
             // Apply row-level background color if the single block is a blank_row
+            var rowClass = 'kdna-etb-row';
             if (blocks.length === 1 && blocks[0].type === 'blank_row') {
                 var brBg = blocks[0].props.bg_color || '#f7f7f7';
                 rowStyle = ' style="background:' + brBg + ';"';
+                rowClass += ' kdna-etb-row-fullbleed';
             }
 
-            var html = '<div class="kdna-etb-row" data-index="' + index + '"' + rowStyle + '>';
+            var html = '<div class="' + rowClass + '" data-index="' + index + '"' + rowStyle + '>';
             html += '<div class="kdna-etb-row-actions">';
             html += '<button class="kdna-etb-row-action move" title="Move"><span class="dashicons dashicons-move"></span></button>';
             html += '<button class="kdna-etb-row-action duplicate" title="Duplicate"><span class="dashicons dashicons-admin-page"></span></button>';
@@ -254,7 +257,7 @@
                     html += '</div>';
                     break;
                 case 'blank_row':
-                    html += '<div class="kdna-etb-blankrow-inner" style="height:' + (p.height || '40px') + ';min-height:20px;background:' + (p.bg_color || '#f7f7f7') + ';padding:' + (p.padding || '0px') + ';"></div>';
+                    html += '<div class="kdna-etb-blankrow-inner" style="width:' + (p.width || '100%') + ';height:' + (p.height || '40px') + ';min-height:20px;background:' + (p.bg_color || '#f7f7f7') + ';padding:' + (p.padding || '0px') + ';box-sizing:border-box;"></div>';
                     break;
                 case 'content':
                     html += '<div style="padding:' + (p.padding || '10px 20px') + ';border:1px dashed #c3c4c7;border-radius:4px;background:#f0f8ff;">';
@@ -438,6 +441,7 @@
                     html += this.alignField('text_align', p.text_align || 'center');
                     break;
                 case 'blank_row':
+                    html += this.field('text', 'width', 'Width', p.width || '100%');
                     html += this.field('text', 'height', 'Height', p.height || '40px');
                     html += this.colorField('bg_color', 'Background Color', p.bg_color || '#f7f7f7');
                     html += this.field('text', 'padding', 'Padding', p.padding || '0px');
@@ -658,7 +662,14 @@
                 self.el.find('.kdna-etb-device-btn').removeClass('active');
                 $(this).addClass('active');
                 var device = $(this).data('device');
-                self.el.find('.kdna-etb-canvas').toggleClass('mobile-preview', device === 'mobile');
+                var isMobile = device === 'mobile';
+                self.el.find('.kdna-etb-canvas').toggleClass('mobile-preview', isMobile);
+                var frame = self.el.find('.kdna-etb-email-frame');
+                if (isMobile) {
+                    frame.css('max-width', '375px');
+                } else {
+                    frame.css('max-width', (parseInt(self.structure.settings.width) + 60) + 'px');
+                }
             });
 
             // Preview
@@ -765,18 +776,69 @@
             var frame = this.el.find('.kdna-etb-email-frame');
             var body = frame.find('.kdna-etb-email-body');
             body.html(this.renderRows());
+            var bodyPadVal = this.structure.settings.padding || '0px';
             body.css({
                 'background': this.structure.settings.content_bg_color || '#fff',
-                'padding': this.structure.settings.padding || '20px'
+                'padding': bodyPadVal
             });
-            frame.css('max-width', (parseInt(this.structure.settings.width) + 60) + 'px');
+            var frameMaxW = parseInt(this.structure.settings.width) + 'px';
+            frame.css('max-width', frameMaxW);
+            this.applyFullbleedMargins();
             this.initSortable();
+
+            // --- DEBUG ---
+            console.group('ETB refreshCanvas DEBUG');
+            console.log('settings.width:', this.structure.settings.width);
+            console.log('settings.padding:', this.structure.settings.padding, '→ applied as:', bodyPadVal);
+            console.log('frame max-width set to:', frameMaxW);
+            console.log('frame actual width:', frame[0].offsetWidth, 'computed:', window.getComputedStyle(frame[0]).width);
+            console.log('body actual width:', body[0].offsetWidth, 'computed:', window.getComputedStyle(body[0]).width);
+            console.log('body computed padding:', window.getComputedStyle(body[0]).padding);
+            var $fb = this.el.find('.kdna-etb-row-fullbleed');
+            console.log('fullbleed rows found:', $fb.length);
+            $fb.each(function (i) {
+                var cs = window.getComputedStyle(this);
+                console.log('  fullbleed row ' + i + ':', {
+                    offsetWidth: this.offsetWidth,
+                    computedWidth: cs.width,
+                    marginLeft: cs.marginLeft,
+                    marginRight: cs.marginRight,
+                    classList: this.className
+                });
+                var inner = this.querySelector('.kdna-etb-blankrow-inner');
+                if (inner) {
+                    var ics = window.getComputedStyle(inner);
+                    console.log('  blankrow-inner ' + i + ':', {
+                        offsetWidth: inner.offsetWidth,
+                        computedWidth: ics.width,
+                        styleWidth: inner.style.width,
+                        height: ics.height
+                    });
+                }
+            });
+            this.el.find('.kdna-etb-row').each(function (i) {
+                var cs = window.getComputedStyle(this);
+                console.log('row ' + i + ' classes:', this.className, 'offsetWidth:', this.offsetWidth, 'border:', cs.border, 'margin:', cs.margin);
+            });
+            console.groupEnd();
+            // --- END DEBUG ---
 
             // Re-highlight currently selected block if still valid.
             if (this.selectedRow !== null && this.structure.rows[this.selectedRow] && this.structure.rows[this.selectedRow].blocks[this.selectedBlock]) {
                 var $row = this.el.find('.kdna-etb-row[data-index="' + this.selectedRow + '"]');
                 $row.addClass('selected');
                 $row.find('.kdna-etb-block[data-block="' + this.selectedBlock + '"]').addClass('selected');
+            }
+        },
+
+        applyFullbleedMargins: function () {
+            var padPx = parseInt(this.structure.settings.padding) || 0;
+            var $rows = this.el.find('.kdna-etb-row-fullbleed');
+            if (padPx > 0 && $rows.length) {
+                $rows.css({
+                    'margin-left': -padPx + 'px',
+                    'margin-right': -padPx + 'px'
+                });
             }
         },
 
