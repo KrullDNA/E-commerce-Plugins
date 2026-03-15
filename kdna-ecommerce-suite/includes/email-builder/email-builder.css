@@ -190,6 +190,8 @@
 .kdna-etb-drop-zone.has-blocks {
     border: none;
     min-height: auto;
+    flex-direction: column;
+    align-items: stretch;
 }
 
 /* Row in Canvas */
@@ -446,4 +448,32 @@
     background: #0073aa;
     color: #fff;
     border-color: #0073aa;
+}
+
+/* Mobile override fields */
+.kdna-etb-mobile-field {
+    border-left: 3px solid #0073aa;
+    padding-left: 10px;
+}
+
+.kdna-etb-desktop-hint {
+    display: block;
+    font-size: 11px;
+    color: #999;
+    margin-bottom: 3px;
+    font-style: italic;
+}
+
+.kdna-etb-device-badge {
+    display: inline-block;
+    background: #0073aa;
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+    margin-left: 4px;
 }

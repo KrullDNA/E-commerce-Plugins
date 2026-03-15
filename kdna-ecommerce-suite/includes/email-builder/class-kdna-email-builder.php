@@ -300,7 +300,12 @@ class KDNA_Email_Builder {
         $html .= 'a{color:' . esc_attr( $link_color ) . ';}';
         $html .= 'img{max-width:100%;height:auto;}';
         $html .= 'table{border-collapse:collapse;}';
-        $html .= '.email-row{width:100%;}</style></head><body>';
+        $html .= '.email-row{width:100%;}';
+        $mobile_css = self::collect_mobile_css( $structure );
+        if ( $mobile_css ) {
+            $html .= '@media only screen and (max-width:480px){' . $mobile_css . '}';
+        }
+        $html .= '</style></head><body>';
 
         if ( $preheader ) {
             $html .= '<div style="display:none;font-size:1px;color:' . esc_attr( $bg ) . ';line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">' . esc_html( $preheader ) . '</div>';
@@ -310,8 +315,8 @@ class KDNA_Email_Builder {
         $html .= '<tr><td align="center" style="padding:' . esc_attr( $padding ) . ';">';
         $html .= '<table width="' . intval( $width ) . '" cellpadding="0" cellspacing="0" role="presentation" style="background:' . esc_attr( $content_bg ) . ';border-radius:' . esc_attr( $s['border_radius'] ?? '0px' ) . ';overflow:hidden;max-width:100%;">';
 
-        foreach ( ( $structure['rows'] ?? [] ) as $row ) {
-            $html .= self::compile_row( $row, $s );
+        foreach ( ( $structure['rows'] ?? [] ) as $row_index => $row ) {
+            $html .= self::compile_row( $row, $s, $row_index );
         }
 
         $html .= '</table></td></tr></table></body></html>';
@@ -330,13 +335,13 @@ class KDNA_Email_Builder {
     /**
      * Compile a single row.
      */
-    private static function compile_row( $row, $settings ) {
+    private static function compile_row( $row, $settings, $row_index = 0 ) {
         $bg      = ! empty( $row['bg_color'] ) ? 'background:' . esc_attr( $row['bg_color'] ) . ';' : '';
         $padding = ! empty( $row['padding'] ) ? 'padding:' . esc_attr( $row['padding'] ) . ';' : '';
         $html    = '<tr><td style="' . $bg . $padding . '">';
 
-        foreach ( ( $row['blocks'] ?? [] ) as $block ) {
-            $html .= self::compile_block( $block, $settings );
+        foreach ( ( $row['blocks'] ?? [] ) as $block_index => $block ) {
+            $html .= self::compile_block( $block, $settings, $row_index, $block_index );
         }
 
         $html .= '</td></tr>';
@@ -346,21 +351,27 @@ class KDNA_Email_Builder {
     /**
      * Compile a single block to HTML.
      */
-    private static function compile_block( $block, $settings ) {
+    private static function compile_block( $block, $settings, $row_index = -1, $block_index = -1 ) {
         $type = $block['type'] ?? 'text';
         $p    = $block['props'] ?? [];
+        $has_mobile  = ! empty( $p['mobile'] ) && $row_index >= 0;
+        $block_class = $has_mobile ? 'kdna-b-' . $row_index . '-' . $block_index : '';
+
+        $output = '';
 
         switch ( $type ) {
             case 'text':
-                $align = $p['text_align'] ?? 'left';
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . wp_kses_post( $p['content'] ?? '' ) . '</div>';
+                $align  = $p['text_align'] ?? 'left';
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . wp_kses_post( $p['content'] ?? '' ) . '</div>';
+                break;
 
             case 'heading':
                 $tag   = in_array( ( $p['tag'] ?? 'h2' ), [ 'h1', 'h2', 'h3', 'h4', 'h5', 'h6' ], true ) ? $p['tag'] : 'h2';
                 $color = ! empty( $p['color'] ) ? 'color:' . esc_attr( $p['color'] ) . ';' : 'color:' . esc_attr( $settings['heading_color'] ?? '#1a1a1a' ) . ';';
                 $size  = ! empty( $p['font_size'] ) ? 'font-size:' . esc_attr( $p['font_size'] ) . ';' : '';
                 $align = $p['text_align'] ?? 'center';
-                return '<' . $tag . ' style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';margin:0;' . $color . $size . '">' . esc_html( $p['content'] ?? '' ) . '</' . $tag . '>';
+                $output = '<' . $tag . ' style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';margin:0;' . $color . $size . '">' . esc_html( $p['content'] ?? '' ) . '</' . $tag . '>';
+                break;
 
             case 'image':
                 $align = $p['text_align'] ?? 'center';
@@ -368,37 +379,41 @@ class KDNA_Email_Builder {
                 if ( ! empty( $p['href'] ) ) {
                     $img = '<a href="' . esc_url( $p['href'] ) . '">' . $img . '</a>';
                 }
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . $img . '</div>';
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . $img . '</div>';
+                break;
 
             case 'button':
-                $align    = $p['text_align'] ?? 'center';
-                $fw       = ! empty( $p['full_width'] ) ? 'display:block;width:100%;' : 'display:inline-block;';
+                $align     = $p['text_align'] ?? 'center';
+                $fw        = ! empty( $p['full_width'] ) ? 'display:block;width:100%;' : 'display:inline-block;';
                 $btn_style = $fw . 'background:' . esc_attr( $p['bg_color'] ?? '#0073aa' ) . ';color:' . esc_attr( $p['text_color'] ?? '#fff' ) . ';padding:' . esc_attr( $p['padding'] ?? '12px 24px' ) . ';border-radius:' . esc_attr( $p['border_radius'] ?? '4px' ) . ';font-size:' . esc_attr( $p['font_size'] ?? '16px' ) . ';font-weight:' . esc_attr( $p['font_weight'] ?? 'bold' ) . ';text-decoration:none;text-align:center;';
-                return '<div style="padding:' . esc_attr( $p['container_padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';"><a href="' . esc_url( $p['href'] ?? '#' ) . '" style="' . $btn_style . '">' . esc_html( $p['text'] ?? 'Click' ) . '</a></div>';
+                $output    = '<div style="padding:' . esc_attr( $p['container_padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';"><a href="' . esc_url( $p['href'] ?? '#' ) . '" style="' . $btn_style . '">' . esc_html( $p['text'] ?? 'Click' ) . '</a></div>';
+                break;
 
             case 'divider':
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';"><hr style="border:none;border-top:' . esc_attr( $p['thickness'] ?? '1px' ) . ' ' . esc_attr( $p['style'] ?? 'solid' ) . ' ' . esc_attr( $p['color'] ?? '#e0e0e0' ) . ';margin:0;width:' . esc_attr( $p['width'] ?? '100%' ) . ';" /></div>';
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';"><hr style="border:none;border-top:' . esc_attr( $p['thickness'] ?? '1px' ) . ' ' . esc_attr( $p['style'] ?? 'solid' ) . ' ' . esc_attr( $p['color'] ?? '#e0e0e0' ) . ';margin:0;width:' . esc_attr( $p['width'] ?? '100%' ) . ';" /></div>';
+                break;
 
             case 'spacer':
-                return '<div style="height:' . esc_attr( $p['height'] ?? '20px' ) . ';"></div>';
+                $output = '<div style="height:' . esc_attr( $p['height'] ?? '20px' ) . ';"></div>';
+                break;
 
             case 'columns':
                 $cols    = intval( $p['columns'] ?? 2 );
                 $gap     = $p['gap'] ?? '10px';
                 $padding = $p['padding'] ?? '10px 20px';
                 $widths  = self::get_column_widths( $p['layout'] ?? '50-50', $cols );
-                $html    = '<div style="padding:' . esc_attr( $padding ) . ';"><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>';
+                $output  = '<div style="padding:' . esc_attr( $padding ) . ';"><table width="100%" cellpadding="0" cellspacing="0" role="presentation"><tr>';
                 for ( $i = 0; $i < $cols; $i++ ) {
                     $col_blocks = $p['col_blocks'][ $i ] ?? [];
                     $w = $widths[ $i ] ?? ( 100 / $cols ) . '%';
-                    $html .= '<td style="width:' . esc_attr( $w ) . ';vertical-align:top;padding:0 ' . esc_attr( $gap ) . ';">';
+                    $output .= '<td style="width:' . esc_attr( $w ) . ';vertical-align:top;padding:0 ' . esc_attr( $gap ) . ';">';
                     foreach ( $col_blocks as $cb ) {
-                        $html .= self::compile_block( $cb, $settings );
+                        $output .= self::compile_block( $cb, $settings );
                     }
-                    $html .= '</td>';
+                    $output .= '</td>';
                 }
-                $html .= '</tr></table></div>';
-                return $html;
+                $output .= '</tr></table></div>';
+                break;
 
             case 'social':
                 $align   = $p['text_align'] ?? 'center';
@@ -407,17 +422,17 @@ class KDNA_Email_Builder {
                 $gap     = $p['spacing'] ?? '8px';
                 $urls    = $p['urls'] ?? [];
                 $icons   = $p['icons'] ?? [ 'facebook', 'twitter', 'instagram' ];
-                $html    = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">';
+                $output  = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">';
                 foreach ( $icons as $icon ) {
                     $url = $urls[ $icon ] ?? '#';
                     if ( empty( $url ) ) { $url = '#'; }
                     $label = ucfirst( $icon );
-                    $html .= '<a href="' . esc_url( $url ) . '" style="display:inline-block;margin:0 ' . esc_attr( $gap ) . ';text-decoration:none;" title="' . esc_attr( $label ) . '">';
-                    $html .= '<img src="' . esc_url( KDNA_ECOMMERCE_URL . 'includes/email-builder/icons/' . $icon . '.png' ) . '" alt="' . esc_attr( $label ) . '" width="' . intval( $size ) . '" height="' . intval( $size ) . '" style="border:0;" />';
-                    $html .= '</a>';
+                    $output .= '<a href="' . esc_url( $url ) . '" style="display:inline-block;margin:0 ' . esc_attr( $gap ) . ';text-decoration:none;" title="' . esc_attr( $label ) . '">';
+                    $output .= '<img src="' . esc_url( KDNA_ECOMMERCE_URL . 'includes/email-builder/icons/' . $icon . '.png' ) . '" alt="' . esc_attr( $label ) . '" width="' . intval( $size ) . '" height="' . intval( $size ) . '" style="border:0;" />';
+                    $output .= '</a>';
                 }
-                $html .= '</div>';
-                return $html;
+                $output .= '</div>';
+                break;
 
             case 'video':
                 $align = $p['text_align'] ?? 'center';
@@ -428,10 +443,12 @@ class KDNA_Email_Builder {
                 } else {
                     $img = '<a href="' . esc_url( $url ) . '" style="display:block;padding:40px;background:#000;color:#fff;text-align:center;font-size:24px;">&#9654; Play Video</a>';
                 }
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . $img . '</div>';
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . $img . '</div>';
+                break;
 
             case 'html':
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">' . ( $p['content'] ?? '' ) . '</div>';
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">' . ( $p['content'] ?? '' ) . '</div>';
+                break;
 
             case 'logo':
                 $align = $p['text_align'] ?? 'center';
@@ -439,27 +456,31 @@ class KDNA_Email_Builder {
                 if ( ! empty( $p['href'] ) ) {
                     $img = '<a href="' . esc_url( $p['href'] ) . '">' . $img . '</a>';
                 }
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . $img . '</div>';
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . $img . '</div>';
+                break;
 
             case 'product':
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">' .
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">' .
                     '<div style="text-align:center;padding:20px;border:1px solid #eee;border-radius:8px;">' .
                     '<p style="color:#999;font-size:13px;">[Product card - rendered dynamically at send time]</p>' .
                     '</div></div>';
+                break;
 
             case 'coupon':
                 $border = $p['border_color'] ?? '#0073aa';
                 $bg     = $p['bg_color'] ?? '#f0f9ff';
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">' .
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">' .
                     '<div style="border:2px dashed ' . esc_attr( $border ) . ';background:' . esc_attr( $bg ) . ';border-radius:8px;padding:20px;text-align:center;">' .
-                    '<div style="font-family:monospace;font-size:' . esc_attr( $p['code_font_size'] ?? '20px' ) . ';font-weight:bold;letter-spacing:2px;color:' . esc_attr( $p['text_color'] ?? '#333' ) . ';">' . esc_html( $p['code_variable'] ?? '{coupon_code}' ) . '</div>' .
+                    '<div class="kdna-coupon-code" style="font-family:monospace;font-size:' . esc_attr( $p['code_font_size'] ?? '20px' ) . ';font-weight:bold;letter-spacing:2px;color:' . esc_attr( $p['text_color'] ?? '#333' ) . ';">' . esc_html( $p['code_variable'] ?? '{coupon_code}' ) . '</div>' .
                     ( ! empty( $p['show_expiry'] ) ? '<div style="font-size:12px;color:#999;margin-top:8px;">{coupon_expiry}</div>' : '' ) .
                     '</div></div>';
+                break;
 
             case 'footer':
                 $bg    = ! empty( $p['bg_color'] ) ? 'background:' . esc_attr( $p['bg_color'] ) . ';' : '';
                 $align = $p['text_align'] ?? 'center';
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '20px' ) . ';' . $bg . 'text-align:' . esc_attr( $align ) . ';">' . wp_kses_post( $p['content'] ?? '' ) . '</div>';
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '20px' ) . ';' . $bg . 'text-align:' . esc_attr( $align ) . ';">' . wp_kses_post( $p['content'] ?? '' ) . '</div>';
+                break;
 
             case 'menu':
                 $align = $p['text_align'] ?? 'center';
@@ -470,25 +491,33 @@ class KDNA_Email_Builder {
                 foreach ( $items as $item ) {
                     $links[] = '<a href="' . esc_url( $item['url'] ?? '#' ) . '" style="font-size:' . esc_attr( $size ) . ';text-decoration:none;">' . esc_html( $item['label'] ?? '' ) . '</a>';
                 }
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . implode( $sep, $links ) . '</div>';
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';text-align:' . esc_attr( $align ) . ';">' . implode( $sep, $links ) . '</div>';
+                break;
 
             case 'order_items':
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">' .
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">' .
                     '<table width="100%" style="border-collapse:collapse;">' .
                     '<tr style="background:#f7f7f7;"><th style="padding:8px;text-align:left;border-bottom:1px solid #e0e0e0;">Item</th>' .
                     ( ! empty( $p['show_quantity'] ) ? '<th style="padding:8px;text-align:center;border-bottom:1px solid #e0e0e0;">Qty</th>' : '' ) .
                     ( ! empty( $p['show_price'] ) ? '<th style="padding:8px;text-align:right;border-bottom:1px solid #e0e0e0;">Price</th>' : '' ) .
                     '</tr><tr><td colspan="3" style="padding:12px;text-align:center;color:#999;font-size:13px;">[Order items rendered at send time]</td></tr></table></div>';
+                break;
 
             case 'blank_row':
-                return '<div style="width:' . esc_attr( $p['width'] ?? '100%' ) . ';height:' . esc_attr( $p['height'] ?? '40px' ) . ';background:' . esc_attr( $p['bg_color'] ?? '#f7f7f7' ) . ';padding:' . esc_attr( $p['padding'] ?? '0px' ) . ';box-sizing:border-box;"></div>';
+                $output = '<div style="width:' . esc_attr( $p['width'] ?? '100%' ) . ';height:' . esc_attr( $p['height'] ?? '40px' ) . ';background:' . esc_attr( $p['bg_color'] ?? '#f7f7f7' ) . ';padding:' . esc_attr( $p['padding'] ?? '0px' ) . ';box-sizing:border-box;"></div>';
+                break;
 
             case 'content':
-                return '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">{email_content}</div>';
-
-            default:
-                return '';
+                $output = '<div style="padding:' . esc_attr( $p['padding'] ?? '10px 20px' ) . ';">{email_content}</div>';
+                break;
         }
+
+        // Wrap with responsive class if block has mobile overrides.
+        if ( $has_mobile && $output ) {
+            $output = '<div class="' . esc_attr( $block_class ) . '">' . $output . '</div>';
+        }
+
+        return $output;
     }
 
     /**
@@ -512,6 +541,90 @@ class KDNA_Email_Builder {
 
         $w = ( 100 / max( 1, $cols ) ) . '%';
         return array_fill( 0, $cols, $w );
+    }
+
+    /**
+     * Collect mobile override CSS rules from all blocks.
+     * Returns CSS rules to be placed inside a @media (max-width:480px) block.
+     */
+    private static function collect_mobile_css( $structure ) {
+        $css = '';
+
+        foreach ( ( $structure['rows'] ?? [] ) as $ri => $row ) {
+            foreach ( ( $row['blocks'] ?? [] ) as $bi => $block ) {
+                $m = $block['props']['mobile'] ?? [];
+                if ( empty( $m ) ) {
+                    continue;
+                }
+
+                $type  = $block['type'] ?? 'text';
+                $sel   = '.kdna-b-' . $ri . '-' . $bi;
+                $rules = [];
+
+                // Padding — applies to the wrapper div for most block types.
+                if ( ! empty( $m['padding'] ) ) {
+                    $rules[] = 'padding:' . esc_attr( $m['padding'] ) . ' !important';
+                }
+
+                // Text alignment.
+                if ( ! empty( $m['text_align'] ) ) {
+                    $rules[] = 'text-align:' . esc_attr( $m['text_align'] ) . ' !important';
+                }
+
+                // Height — spacer and blank_row.
+                if ( ! empty( $m['height'] ) && in_array( $type, [ 'spacer', 'blank_row' ], true ) ) {
+                    $rules[] = 'height:' . esc_attr( $m['height'] ) . ' !important';
+                }
+
+                // Width — blank_row wrapper.
+                if ( ! empty( $m['width'] ) && $type === 'blank_row' ) {
+                    $rules[] = 'width:' . esc_attr( $m['width'] ) . ' !important';
+                }
+
+                // Container padding — button wrapper.
+                if ( ! empty( $m['container_padding'] ) && $type === 'button' ) {
+                    $rules[] = 'padding:' . esc_attr( $m['container_padding'] ) . ' !important';
+                }
+
+                if ( $rules ) {
+                    $css .= $sel . ' > *{' . implode( ';', $rules ) . ';}';
+                }
+
+                // Font size — type-specific targeting.
+                if ( ! empty( $m['font_size'] ) ) {
+                    if ( $type === 'heading' ) {
+                        $tag = $block['props']['tag'] ?? 'h2';
+                        $css .= $sel . ' ' . $tag . '{font-size:' . esc_attr( $m['font_size'] ) . ' !important;}';
+                    } elseif ( $type === 'button' ) {
+                        $css .= $sel . ' a{font-size:' . esc_attr( $m['font_size'] ) . ' !important;}';
+                    } elseif ( $type === 'coupon' ) {
+                        $css .= $sel . ' .kdna-coupon-code{font-size:' . esc_attr( $m['font_size'] ) . ' !important;}';
+                    } elseif ( $type === 'menu' ) {
+                        $css .= $sel . ' a{font-size:' . esc_attr( $m['font_size'] ) . ' !important;}';
+                    }
+                }
+
+                // Image/logo width.
+                if ( ! empty( $m['width'] ) && in_array( $type, [ 'image', 'logo' ], true ) ) {
+                    $css .= $sel . ' img{width:' . esc_attr( $m['width'] ) . ' !important;}';
+                }
+
+                // Social icon size.
+                if ( ! empty( $m['icon_size'] ) && $type === 'social' ) {
+                    $sz = intval( $m['icon_size'] );
+                    $css .= $sel . ' img{width:' . $sz . 'px !important;height:' . $sz . 'px !important;}';
+                }
+
+                // Stack columns on mobile.
+                if ( ! empty( $m['stack_on_mobile'] ) && $type === 'columns' ) {
+                    $css .= $sel . ' table{display:block !important;}';
+                    $css .= $sel . ' tr{display:block !important;}';
+                    $css .= $sel . ' td{display:block !important;width:100% !important;padding-bottom:' . esc_attr( $m['gap'] ?? $block['props']['gap'] ?? '10px' ) . ' !important;}';
+                }
+            }
+        }
+
+        return $css;
     }
 
     // ===================================================================

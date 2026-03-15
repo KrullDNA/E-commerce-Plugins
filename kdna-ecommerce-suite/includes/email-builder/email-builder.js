@@ -14,6 +14,7 @@
         blocks: {},
         selectedRow: null,
         selectedBlock: null,
+        currentDevice: 'desktop',
 
         init: function () {
             this.el = $('#kdna-email-builder');
@@ -167,7 +168,7 @@
 
         renderBlockPreview: function (block, rowIndex, blockIndex) {
             var type = block.type || 'text';
-            var p = block.props || {};
+            var p = this.getPreviewProps(block);
             var pad = p.padding || '10px 20px';
             var html = '<div class="kdna-etb-block" data-row="' + rowIndex + '" data-block="' + blockIndex + '" data-type="' + type + '">';
 
@@ -318,6 +319,11 @@
         renderBlockSettings: function (block) {
             var type = block.type || 'text';
             var p = block.props || {};
+
+            if (this.currentDevice === 'mobile') {
+                return this.renderMobileBlockSettings(block);
+            }
+
             var html = '<div class="kdna-etb-settings-group"><h4>' + (this.blocks[type] ? this.blocks[type].label : type) + ' Settings</h4>';
 
             switch (type) {
@@ -499,6 +505,139 @@
             return html;
         },
 
+        getPreviewProps: function (block) {
+            var p = $.extend({}, block.props || {});
+            if (this.currentDevice === 'mobile' && block.props && block.props.mobile) {
+                var mobile = block.props.mobile;
+                for (var k in mobile) {
+                    if (mobile.hasOwnProperty(k) && mobile[k] !== '' && mobile[k] !== null && mobile[k] !== undefined) {
+                        p[k] = mobile[k];
+                    }
+                }
+            }
+            return p;
+        },
+
+        mobileField: function (type, name, label, mobileValue, desktopValue, options) {
+            var html = '<div class="kdna-etb-field kdna-etb-mobile-field">';
+            html += '<label>' + this.escHtml(label) + '</label>';
+            html += '<span class="kdna-etb-desktop-hint">Desktop: ' + this.escHtml(desktopValue || '(default)') + '</span>';
+            if (type === 'select') {
+                html += '<select class="kdna-etb-input" data-prop="mobile.' + name + '">';
+                html += '<option value=""' + (!mobileValue ? ' selected' : '') + '>Same as desktop</option>';
+                for (var k in options) {
+                    html += '<option value="' + this.escAttr(k) + '"' + (k == mobileValue ? ' selected' : '') + '>' + this.escHtml(options[k]) + '</option>';
+                }
+                html += '</select>';
+            } else {
+                html += '<input type="' + type + '" class="kdna-etb-input" data-prop="mobile.' + name + '" value="' + this.escAttr(mobileValue || '') + '" placeholder="' + this.escAttr(desktopValue || '') + '" />';
+            }
+            html += '</div>';
+            return html;
+        },
+
+        mobileToggleField: function (name, label, value) {
+            var checked = value === true || value === 'true' || value === 1 || value === '1';
+            return '<div class="kdna-etb-field kdna-etb-toggle kdna-etb-mobile-field"><label>' + this.escHtml(label) + '</label><input type="checkbox" class="kdna-etb-input kdna-etb-toggle-input" data-prop="mobile.' + name + '"' + (checked ? ' checked' : '') + ' /></div>';
+        },
+
+        renderMobileBlockSettings: function (block) {
+            var type = block.type || 'text';
+            var p = block.props || {};
+            var m = p.mobile || {};
+
+            var html = '<div class="kdna-etb-settings-group">';
+            html += '<h4>' + (this.blocks[type] ? this.blocks[type].label : type) + ' <span class="kdna-etb-device-badge">Mobile</span></h4>';
+            html += '<p class="description" style="margin-bottom:12px;">Override desktop values for mobile. Leave empty to use desktop value.</p>';
+
+            var alignOpts = { left: 'Left', center: 'Center', right: 'Right' };
+
+            switch (type) {
+                case 'text':
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    html += this.mobileField('select', 'text_align', 'Alignment', m.text_align, p.text_align || 'left', alignOpts);
+                    break;
+                case 'heading':
+                    html += this.mobileField('text', 'font_size', 'Font Size', m.font_size, p.font_size || '24px');
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    html += this.mobileField('select', 'text_align', 'Alignment', m.text_align, p.text_align || 'center', alignOpts);
+                    break;
+                case 'image':
+                    html += this.mobileField('text', 'width', 'Width', m.width, p.width || '100%');
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    html += this.mobileField('select', 'text_align', 'Alignment', m.text_align, p.text_align || 'center', alignOpts);
+                    break;
+                case 'button':
+                    html += this.mobileField('text', 'font_size', 'Font Size', m.font_size, p.font_size || '16px');
+                    html += this.mobileField('text', 'padding', 'Button Padding', m.padding, p.padding || '12px 24px');
+                    html += this.mobileField('text', 'container_padding', 'Container Padding', m.container_padding, p.container_padding || '10px 20px');
+                    html += this.mobileField('select', 'text_align', 'Alignment', m.text_align, p.text_align || 'center', alignOpts);
+                    break;
+                case 'divider':
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    break;
+                case 'spacer':
+                    html += this.mobileField('text', 'height', 'Height', m.height, p.height || '20px');
+                    break;
+                case 'social':
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    html += this.mobileField('text', 'icon_size', 'Icon Size', m.icon_size, p.icon_size || '32px');
+                    html += this.mobileField('select', 'text_align', 'Alignment', m.text_align, p.text_align || 'center', alignOpts);
+                    break;
+                case 'footer':
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '20px');
+                    html += this.mobileField('select', 'text_align', 'Alignment', m.text_align, p.text_align || 'center', alignOpts);
+                    break;
+                case 'coupon':
+                    html += this.mobileField('text', 'code_font_size', 'Code Size', m.code_font_size, p.code_font_size || '20px');
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    break;
+                case 'html':
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    break;
+                case 'logo':
+                    html += this.mobileField('text', 'width', 'Width', m.width, p.width || '150px');
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '20px');
+                    html += this.mobileField('select', 'text_align', 'Alignment', m.text_align, p.text_align || 'center', alignOpts);
+                    break;
+                case 'menu':
+                    html += this.mobileField('text', 'font_size', 'Font Size', m.font_size, p.font_size || '13px');
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    html += this.mobileField('select', 'text_align', 'Alignment', m.text_align, p.text_align || 'center', alignOpts);
+                    break;
+                case 'columns':
+                    html += this.mobileToggleField('stack_on_mobile', 'Stack on Mobile', m.stack_on_mobile !== false);
+                    html += this.mobileField('text', 'gap', 'Gap', m.gap, p.gap || '10px');
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    break;
+                case 'product':
+                    html += this.mobileField('select', 'columns', 'Columns', m.columns ? String(m.columns) : '', String(p.columns || 2), { '1': '1', '2': '2', '3': '3', '4': '4' });
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    break;
+                case 'order_items':
+                    html += this.mobileField('text', 'image_width', 'Image Width', m.image_width, p.image_width || '64px');
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    break;
+                case 'video':
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    html += this.mobileField('select', 'text_align', 'Alignment', m.text_align, p.text_align || 'center', alignOpts);
+                    break;
+                case 'blank_row':
+                    html += this.mobileField('text', 'width', 'Width', m.width, p.width || '100%');
+                    html += this.mobileField('text', 'height', 'Height', m.height, p.height || '40px');
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '0px');
+                    break;
+                case 'content':
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    break;
+                default:
+                    html += '<p>No mobile settings available for this block type.</p>';
+            }
+
+            html += '</div>';
+            return html;
+        },
+
         // Event binding
         bindEvents: function () {
             var self = this;
@@ -635,7 +774,14 @@
                 $(this).siblings().removeClass('active');
                 $(this).addClass('active');
                 if (self.selectedRow !== null) {
-                    self.structure.rows[self.selectedRow].blocks[self.selectedBlock].props[prop] = val;
+                    var block = self.structure.rows[self.selectedRow].blocks[self.selectedBlock];
+                    if (prop.indexOf('.') > -1) {
+                        var parts = prop.split('.');
+                        if (!block.props[parts[0]]) block.props[parts[0]] = {};
+                        block.props[parts[0]][parts[1]] = val;
+                    } else {
+                        block.props[prop] = val;
+                    }
                     self.refreshCanvas();
                 }
             });
@@ -662,6 +808,7 @@
                 self.el.find('.kdna-etb-device-btn').removeClass('active');
                 $(this).addClass('active');
                 var device = $(this).data('device');
+                self.currentDevice = device;
                 var isMobile = device === 'mobile';
                 self.el.find('.kdna-etb-canvas').toggleClass('mobile-preview', isMobile);
                 var frame = self.el.find('.kdna-etb-email-frame');
@@ -669,6 +816,13 @@
                     frame.css('max-width', '375px');
                 } else {
                     frame.css('max-width', (parseInt(self.structure.settings.width) + 60) + 'px');
+                }
+                self.refreshCanvas();
+                // Re-render block settings for current device
+                if (self.selectedRow !== null && self.structure.rows[self.selectedRow] && self.structure.rows[self.selectedRow].blocks[self.selectedBlock]) {
+                    var block = self.structure.rows[self.selectedRow].blocks[self.selectedBlock];
+                    self.el.find('.kdna-etb-panel[data-panel="block-settings"]').html(self.renderBlockSettings(block));
+                    self.initColorPickers();
                 }
             });
 
@@ -776,52 +930,17 @@
             var frame = this.el.find('.kdna-etb-email-frame');
             var body = frame.find('.kdna-etb-email-body');
             body.html(this.renderRows());
-            var bodyPadVal = this.structure.settings.padding || '0px';
             body.css({
                 'background': this.structure.settings.content_bg_color || '#fff',
-                'padding': bodyPadVal
+                'padding': this.structure.settings.padding || '0px'
             });
-            var frameMaxW = parseInt(this.structure.settings.width) + 'px';
-            frame.css('max-width', frameMaxW);
+            if (this.currentDevice === 'mobile') {
+                frame.css('max-width', '375px');
+            } else {
+                frame.css('max-width', parseInt(this.structure.settings.width) + 'px');
+            }
             this.applyFullbleedMargins();
             this.initSortable();
-
-            // --- DEBUG ---
-            console.group('ETB refreshCanvas DEBUG');
-            console.log('settings.width:', this.structure.settings.width);
-            console.log('settings.padding:', this.structure.settings.padding, '→ applied as:', bodyPadVal);
-            console.log('frame max-width set to:', frameMaxW);
-            console.log('frame actual width:', frame[0].offsetWidth, 'computed:', window.getComputedStyle(frame[0]).width);
-            console.log('body actual width:', body[0].offsetWidth, 'computed:', window.getComputedStyle(body[0]).width);
-            console.log('body computed padding:', window.getComputedStyle(body[0]).padding);
-            var $fb = this.el.find('.kdna-etb-row-fullbleed');
-            console.log('fullbleed rows found:', $fb.length);
-            $fb.each(function (i) {
-                var cs = window.getComputedStyle(this);
-                console.log('  fullbleed row ' + i + ':', {
-                    offsetWidth: this.offsetWidth,
-                    computedWidth: cs.width,
-                    marginLeft: cs.marginLeft,
-                    marginRight: cs.marginRight,
-                    classList: this.className
-                });
-                var inner = this.querySelector('.kdna-etb-blankrow-inner');
-                if (inner) {
-                    var ics = window.getComputedStyle(inner);
-                    console.log('  blankrow-inner ' + i + ':', {
-                        offsetWidth: inner.offsetWidth,
-                        computedWidth: ics.width,
-                        styleWidth: inner.style.width,
-                        height: ics.height
-                    });
-                }
-            });
-            this.el.find('.kdna-etb-row').each(function (i) {
-                var cs = window.getComputedStyle(this);
-                console.log('row ' + i + ' classes:', this.className, 'offsetWidth:', this.offsetWidth, 'border:', cs.border, 'margin:', cs.margin);
-            });
-            console.groupEnd();
-            // --- END DEBUG ---
 
             // Re-highlight currently selected block if still valid.
             if (this.selectedRow !== null && this.structure.rows[this.selectedRow] && this.structure.rows[this.selectedRow].blocks[this.selectedBlock]) {
