@@ -663,7 +663,7 @@ class KDNA_Email_Builder {
 
         $post_data = [
             'post_title'   => $name,
-            'post_content' => $json,
+            'post_content' => wp_slash( $json ),
             'post_type'    => self::POST_TYPE,
             'post_status'  => 'publish',
         ];
@@ -679,7 +679,7 @@ class KDNA_Email_Builder {
             wp_send_json_error( $template_id->get_error_message() );
         }
 
-        update_post_meta( $template_id, self::META_JSON, $json );
+        update_post_meta( $template_id, self::META_JSON, wp_slash( $json ) );
         update_post_meta( $template_id, self::META_CSS, $custom_css );
 
         // Generate compiled HTML and store it.

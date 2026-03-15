@@ -834,7 +834,9 @@
                     json: JSON.stringify(self.structure)
                 }, function (resp) {
                     if (resp.success) {
-                        var w = window.open('', 'email_preview', 'width=700,height=600');
+                        var isMobile = self.currentDevice === 'mobile';
+                        var winWidth = isMobile ? 400 : 700;
+                        var w = window.open('', 'email_preview', 'width=' + winWidth + ',height=600');
                         w.document.open();
                         w.document.write(resp.data.html);
                         w.document.close();
