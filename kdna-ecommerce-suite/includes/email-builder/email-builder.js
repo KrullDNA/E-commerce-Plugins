@@ -116,6 +116,7 @@
             html += '</div>'; // canvas end
 
             this.el.html(html);
+            this.applyFullbleedMargins();
             this.initSortable();
             this.initColorPickers();
         },
@@ -138,12 +139,14 @@
             var blocks = row.blocks || [];
 
             // Apply row-level background color if the single block is a blank_row
+            var rowClass = 'kdna-etb-row';
             if (blocks.length === 1 && blocks[0].type === 'blank_row') {
                 var brBg = blocks[0].props.bg_color || '#f7f7f7';
                 rowStyle = ' style="background:' + brBg + ';"';
+                rowClass += ' kdna-etb-row-fullbleed';
             }
 
-            var html = '<div class="kdna-etb-row" data-index="' + index + '"' + rowStyle + '>';
+            var html = '<div class="' + rowClass + '" data-index="' + index + '"' + rowStyle + '>';
             html += '<div class="kdna-etb-row-actions">';
             html += '<button class="kdna-etb-row-action move" title="Move"><span class="dashicons dashicons-move"></span></button>';
             html += '<button class="kdna-etb-row-action duplicate" title="Duplicate"><span class="dashicons dashicons-admin-page"></span></button>';
@@ -778,6 +781,7 @@
                 'padding': this.structure.settings.padding || '0px'
             });
             frame.css('max-width', parseInt(this.structure.settings.width) + 'px');
+            this.applyFullbleedMargins();
             this.initSortable();
 
             // Re-highlight currently selected block if still valid.
@@ -785,6 +789,17 @@
                 var $row = this.el.find('.kdna-etb-row[data-index="' + this.selectedRow + '"]');
                 $row.addClass('selected');
                 $row.find('.kdna-etb-block[data-block="' + this.selectedBlock + '"]').addClass('selected');
+            }
+        },
+
+        applyFullbleedMargins: function () {
+            var padPx = parseInt(this.structure.settings.padding) || 0;
+            var $rows = this.el.find('.kdna-etb-row-fullbleed');
+            if (padPx > 0 && $rows.length) {
+                $rows.css({
+                    'margin-left': -padPx + 'px',
+                    'margin-right': -padPx + 'px'
+                });
             }
         },
 
