@@ -47,6 +47,9 @@ class KDNA_Email_Builder {
     /** Captured email body content (between WC header and footer actions). */
     private $captured_woo_body = null;
 
+    /** Email heading captured from woocommerce_email_header action. */
+    private $captured_email_heading = null;
+
     private static $instance = null;
 
     public static function instance() {
@@ -82,12 +85,16 @@ class KDNA_Email_Builder {
      * Start capturing output after WC's email header has fully rendered.
      * Everything echoed from this point until the footer action is the
      * actual email body content (order details, etc.) without WC chrome.
+     *
+     * Also grabs $email_heading (e.g. "Thank you for your order") so we
+     * can prepend it to the captured body content.
      */
-    public function start_capture_woo_body() {
+    public function start_capture_woo_body( $email_heading = '' ) {
         if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
             return;
         }
-        $this->captured_woo_body = null;
+        $this->captured_woo_body    = null;
+        $this->captured_email_heading = $email_heading;
         ob_start();
     }
 
@@ -164,8 +171,17 @@ class KDNA_Email_Builder {
             }
         }
 
+        // Prepend the email heading (e.g. "Thank you for your order") which
+        // WC renders inside its header action and our capture excludes.
+        if ( ! empty( $this->captured_email_heading ) ) {
+            $heading_html = '<h1 style="font-size:30px;font-weight:300;line-height:1.2;margin:0 0 16px;">'
+                . wp_kses_post( $this->captured_email_heading ) . '</h1>';
+            $body_content = $heading_html . $body_content;
+        }
+
         // Reset for next email.
-        $this->captured_woo_body = null;
+        $this->captured_woo_body          = null;
+        $this->captured_email_heading = null;
 
         $compiled = self::compile_to_html( $structure, [
             'woo_email_content' => $body_content,
