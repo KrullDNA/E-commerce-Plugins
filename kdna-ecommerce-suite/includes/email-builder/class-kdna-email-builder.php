@@ -61,44 +61,17 @@ class KDNA_Email_Builder {
         add_action( 'wp_ajax_kdna_email_builder_duplicate', [ $this, 'ajax_duplicate' ] );
         add_action( 'wp_ajax_kdna_email_builder_upload_image', [ $this, 'ajax_upload_image' ] );
 
-        // WooCommerce email integration.
+        // WooCommerce email integration — wrap sent emails with KDNA template.
         add_filter( 'woocommerce_mail_content', [ $this, 'wrap_woo_email' ] );
-
-        // Remove WooCommerce's default email header/footer rendering when a
-        // custom KDNA template is active, so we don't get double headers/footers.
-        add_action( 'woocommerce_init', [ $this, 'maybe_unhook_woo_email_header_footer' ] );
-    }
-
-    /**
-     * If a KDNA email template is active, remove WooCommerce's default
-     * email_header() and email_footer() actions and replace them with
-     * minimal versions that output only a bare HTML shell.
-     */
-    public function maybe_unhook_woo_email_header_footer() {
-        $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
-        if ( ! $template_id ) {
-            return;
-        }
-
-        $mailer = WC()->mailer();
-        remove_action( 'woocommerce_email_header', [ $mailer, 'email_header' ] );
-        remove_action( 'woocommerce_email_footer', [ $mailer, 'email_footer' ] );
-
-        // Add minimal replacements so the email still has valid HTML structure.
-        add_action( 'woocommerce_email_header', function ( $email_heading ) {
-            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>';
-        } );
-        add_action( 'woocommerce_email_footer', function () {
-            echo '</body></html>';
-        } );
     }
 
     /**
      * Wrap WooCommerce transactional email content with a builder template.
      *
-     * Hooks into woocommerce_mail_content to replace WooCommerce's default
-     * header/footer with the selected builder template. The template must
-     * contain a {woo_email_content} placeholder (via the WooCommerce Content block).
+     * Hooks into woocommerce_mail_content (fires only when WC sends an email,
+     * not during admin preview). Extracts the actual order content from WC's
+     * fully rendered email HTML by targeting WC's known DOM structure, then
+     * compiles the KDNA template with that content as {woo_email_content}.
      */
     public function wrap_woo_email( $html ) {
         $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
@@ -131,13 +104,9 @@ class KDNA_Email_Builder {
             return $html;
         }
 
-        // Extract only the <body> content. Since we removed WC's email_header
-        // and email_footer actions, the body should contain just the raw email
-        // content without any WC wrapper chrome.
-        $body_content = $html;
-        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $matches ) ) {
-            $body_content = trim( $matches[1] );
-        }
+        // Extract just the order content from WC's rendered email, stripping
+        // WC's own header (logo, heading bar) and footer (credit line).
+        $body_content = self::extract_woo_content( $html );
 
         $compiled = self::compile_to_html( $structure, [
             'woo_email_content' => $body_content,
@@ -148,6 +117,78 @@ class KDNA_Email_Builder {
         ] );
 
         return $compiled;
+    }
+
+    /**
+     * Extract the actual email content from WooCommerce's fully rendered HTML,
+     * stripping WC's header (logo, styled heading bar) and footer (credit).
+     *
+     * Uses string-position lookups against WC's known HTML element IDs rather
+     * than regex, because regex cannot reliably handle nested HTML elements.
+     *
+     * @param string $html Full WC email HTML.
+     * @return string Extracted content.
+     */
+    private static function extract_woo_content( $html ) {
+        // Strategy: find the start of actual content (after WC's header) and
+        // the end of content (before WC's footer), then extract between them.
+
+        // Find content start: look for #body_content_inner opening tag.
+        $content_start = false;
+        $start_id = strpos( $html, 'body_content_inner' );
+        if ( $start_id !== false ) {
+            // Jump past the closing ">" of the element's opening tag.
+            $content_start = strpos( $html, '>', $start_id );
+            if ( $content_start !== false ) {
+                $content_start++;
+            }
+        }
+
+        // Fallback: look for #body_content.
+        if ( $content_start === false ) {
+            $start_id = strpos( $html, '"body_content"' );
+            if ( $start_id === false ) {
+                $start_id = strpos( $html, "'body_content'" );
+            }
+            if ( $start_id !== false ) {
+                $content_start = strpos( $html, '>', $start_id );
+                if ( $content_start !== false ) {
+                    $content_start++;
+                }
+            }
+        }
+
+        // Find content end: look for the first end-marker after content start.
+        $content_end = false;
+        if ( $content_start !== false ) {
+            $end_markers = [ 'template_footer', 'credit' ];
+            foreach ( $end_markers as $marker ) {
+                $pos = strpos( $html, $marker, $content_start );
+                if ( $pos !== false ) {
+                    // Walk backwards from marker to find the opening "<" of its element.
+                    $tag_open = strrpos( substr( $html, 0, $pos ), '<' );
+                    if ( $tag_open !== false ) {
+                        $content_end = $tag_open;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ( $content_start !== false && $content_end !== false ) {
+            $content = substr( $html, $content_start, $content_end - $content_start );
+            // Strip any trailing </div>, </td>, </tr>, </table> wrapper tags
+            // that belong to WC's table structure, not the actual content.
+            $content = preg_replace( '/(\s*<\/(?:div|td|tr|table)>\s*)+$/si', '', $content );
+            return trim( $content );
+        }
+
+        // Fallback: extract <body> content and try to strip known WC elements.
+        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $m ) ) {
+            return trim( $m[1] );
+        }
+
+        return $html;
     }
 
     public function register_post_type() {
