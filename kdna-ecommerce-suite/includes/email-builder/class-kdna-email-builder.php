@@ -41,6 +41,12 @@ class KDNA_Email_Builder {
         'woo_content' => [ 'label' => 'WooCommerce Content', 'icon' => 'dashicons-cart' ],
     ];
 
+    /** Sentinel comment injected by compile_to_html to prevent re-wrapping. */
+    const SENTINEL = '<!-- KDNA_TPL -->';
+
+    /** Captured email body content (between WC header and footer actions). */
+    private $captured_woo_body = null;
+
     private static $instance = null;
 
     public static function instance() {
@@ -63,17 +69,60 @@ class KDNA_Email_Builder {
 
         // WooCommerce email integration — wrap sent emails with KDNA template.
         add_filter( 'woocommerce_mail_content', [ $this, 'wrap_woo_email' ] );
+
+        // Capture the raw email body content that appears BETWEEN WC's header
+        // and footer. This avoids parsing WC's rendered HTML altogether.
+        // Priority 9999 on header = runs AFTER WC's header has fully rendered.
+        // Priority 0 on footer = runs BEFORE WC's footer starts rendering.
+        add_action( 'woocommerce_email_header', [ $this, 'start_capture_woo_body' ], 9999 );
+        add_action( 'woocommerce_email_footer', [ $this, 'stop_capture_woo_body' ], 0 );
+    }
+
+    /**
+     * Start capturing output after WC's email header has fully rendered.
+     * Everything echoed from this point until the footer action is the
+     * actual email body content (order details, etc.) without WC chrome.
+     */
+    public function start_capture_woo_body() {
+        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
+            return;
+        }
+        $this->captured_woo_body = null;
+        ob_start();
+    }
+
+    /**
+     * Stop capturing and store the raw email body content, just before
+     * WC's footer starts rendering.
+     */
+    public function stop_capture_woo_body() {
+        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
+            return;
+        }
+        if ( ob_get_level() > 0 ) {
+            $this->captured_woo_body = ob_get_contents();
+        }
+        // Don't clean — let the content flow through so WC's outer buffer
+        // still receives the full email for style_inline() processing.
+        // We just grabbed a copy for ourselves.
+        if ( $this->captured_woo_body !== null ) {
+            ob_end_flush();
+        }
     }
 
     /**
      * Wrap WooCommerce transactional email content with a builder template.
      *
-     * Hooks into woocommerce_mail_content (fires only when WC sends an email,
-     * not during admin preview). Extracts the actual order content from WC's
-     * fully rendered email HTML by targeting WC's known DOM structure, then
-     * compiles the KDNA template with that content as {woo_email_content}.
+     * Uses the body content captured between WC's email_header and
+     * email_footer actions (via OB) when available. This gives us just
+     * the order content without WC's header/footer chrome.
      */
     public function wrap_woo_email( $html ) {
+        // Prevent double-wrapping if this filter fires more than once.
+        if ( strpos( $html, self::SENTINEL ) !== false ) {
+            return $html;
+        }
+
         $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
         if ( ! $template_id ) {
             return $html;
@@ -104,9 +153,19 @@ class KDNA_Email_Builder {
             return $html;
         }
 
-        // Extract just the order content from WC's rendered email, stripping
-        // WC's own header (logo, heading bar) and footer (credit line).
-        $body_content = self::extract_woo_content( $html );
+        // Use captured body content (between header/footer) when available.
+        // Fall back to extracting <body> content from the full HTML.
+        $body_content = $this->captured_woo_body;
+        if ( empty( $body_content ) ) {
+            if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $m ) ) {
+                $body_content = trim( $m[1] );
+            } else {
+                $body_content = $html;
+            }
+        }
+
+        // Reset for next email.
+        $this->captured_woo_body = null;
 
         $compiled = self::compile_to_html( $structure, [
             'woo_email_content' => $body_content,
@@ -117,78 +176,6 @@ class KDNA_Email_Builder {
         ] );
 
         return $compiled;
-    }
-
-    /**
-     * Extract the actual email content from WooCommerce's fully rendered HTML,
-     * stripping WC's header (logo, styled heading bar) and footer (credit).
-     *
-     * Uses string-position lookups against WC's known HTML element IDs rather
-     * than regex, because regex cannot reliably handle nested HTML elements.
-     *
-     * @param string $html Full WC email HTML.
-     * @return string Extracted content.
-     */
-    private static function extract_woo_content( $html ) {
-        // Strategy: find the start of actual content (after WC's header) and
-        // the end of content (before WC's footer), then extract between them.
-
-        // Find content start: look for #body_content_inner opening tag.
-        $content_start = false;
-        $start_id = strpos( $html, 'body_content_inner' );
-        if ( $start_id !== false ) {
-            // Jump past the closing ">" of the element's opening tag.
-            $content_start = strpos( $html, '>', $start_id );
-            if ( $content_start !== false ) {
-                $content_start++;
-            }
-        }
-
-        // Fallback: look for #body_content.
-        if ( $content_start === false ) {
-            $start_id = strpos( $html, '"body_content"' );
-            if ( $start_id === false ) {
-                $start_id = strpos( $html, "'body_content'" );
-            }
-            if ( $start_id !== false ) {
-                $content_start = strpos( $html, '>', $start_id );
-                if ( $content_start !== false ) {
-                    $content_start++;
-                }
-            }
-        }
-
-        // Find content end: look for the first end-marker after content start.
-        $content_end = false;
-        if ( $content_start !== false ) {
-            $end_markers = [ 'template_footer', 'credit' ];
-            foreach ( $end_markers as $marker ) {
-                $pos = strpos( $html, $marker, $content_start );
-                if ( $pos !== false ) {
-                    // Walk backwards from marker to find the opening "<" of its element.
-                    $tag_open = strrpos( substr( $html, 0, $pos ), '<' );
-                    if ( $tag_open !== false ) {
-                        $content_end = $tag_open;
-                        break;
-                    }
-                }
-            }
-        }
-
-        if ( $content_start !== false && $content_end !== false ) {
-            $content = substr( $html, $content_start, $content_end - $content_start );
-            // Strip any trailing </div>, </td>, </tr>, </table> wrapper tags
-            // that belong to WC's table structure, not the actual content.
-            $content = preg_replace( '/(\s*<\/(?:div|td|tr|table)>\s*)+$/si', '', $content );
-            return trim( $content );
-        }
-
-        // Fallback: extract <body> content and try to strip known WC elements.
-        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $m ) ) {
-            return trim( $m[1] );
-        }
-
-        return $html;
     }
 
     public function register_post_type() {
@@ -439,7 +426,7 @@ class KDNA_Email_Builder {
         $padding     = $s['padding'] ?? '20px';
         $preheader   = $s['preheader'] ?? '';
 
-        $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
+        $html = self::SENTINEL . '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
         $html .= '<style>body{margin:0;padding:0;background:' . self::esc_css( $bg ) . ';font-family:' . self::esc_css( $font_family ) . ';font-size:' . self::esc_css( $font_size ) . ';line-height:' . self::esc_css( $line_height ) . ';color:' . self::esc_css( $text_color ) . ';}';
         $html .= 'a{color:' . self::esc_css( $link_color ) . ';}';
         $html .= 'img{max-width:100%;height:auto;}';
