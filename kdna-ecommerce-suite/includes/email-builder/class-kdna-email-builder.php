@@ -101,6 +101,12 @@ class KDNA_Email_Builder {
      * contain a {woo_email_content} placeholder (via the WooCommerce Content block).
      */
     public function wrap_woo_email( $html ) {
+        // Prevent re-entrant wrapping.
+        static $wrapping = false;
+        if ( $wrapping ) {
+            return $html;
+        }
+
         $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
         if ( ! $template_id ) {
             return $html;
@@ -131,22 +137,10 @@ class KDNA_Email_Builder {
             return $html;
         }
 
-        // Extract the <body> content from WooCommerce's email HTML.
-        // With our template overrides active, WC outputs a minimal HTML shell
-        // (just <html><body>content</body></html>) so we only need to extract body.
-        $body_content = $html;
-        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $matches ) ) {
-            $body_content = trim( $matches[1] );
-        }
+        $wrapping = true;
 
-        // Fallback: if WC templates were not overridden (e.g. theme override takes
-        // priority), strip the WooCommerce wrapper tables to get inner content.
-        if ( preg_match( '/id\s*=\s*["\']body_content_inner["\'][^>]*>(.*)/si', $body_content, $inner ) ) {
-            $inner_html = $inner[1];
-            // Remove trailing closing tags from the WooCommerce wrapper tables.
-            $inner_html = preg_replace( '/(<\/td>\s*<\/tr>\s*<\/table>\s*){2,}.*$/si', '', $inner_html );
-            $body_content = trim( $inner_html );
-        }
+        // Extract the inner email content, stripping WooCommerce's wrapper.
+        $body_content = self::strip_woo_wrapper( $html );
 
         $compiled = self::compile_to_html( $structure, [
             'woo_email_content' => $body_content,
@@ -156,7 +150,52 @@ class KDNA_Email_Builder {
             'unsubscribe_url'   => '#',
         ] );
 
+        $wrapping = false;
+
         return $compiled;
+    }
+
+    /**
+     * Strip WooCommerce's default email wrapper (header image, header, footer,
+     * outer tables) and return only the inner email content.
+     */
+    private static function strip_woo_wrapper( $html ) {
+        // 1. Extract <body> content.
+        $content = $html;
+        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $m ) ) {
+            $content = trim( $m[1] );
+        }
+
+        // 2. If WC's #body_content_inner exists, extract just its content.
+        //    This is the innermost wrapper that holds the actual email text.
+        if ( preg_match( '/id\s*=\s*["\']body_content_inner["\'][^>]*>/si', $content ) ) {
+            // Get everything after the opening tag of #body_content_inner.
+            $parts = preg_split( '/id\s*=\s*["\']body_content_inner["\'][^>]*>/si', $content, 2 );
+            if ( isset( $parts[1] ) ) {
+                $inner = $parts[1];
+                // Remove the closing </td></tr></table> chains that belong to the
+                // WC wrapper (body_content, template_body, template_container, etc.)
+                // and everything after (footer, closing wrapper divs/tables).
+                // Count backwards from the end: we need to strip the WC footer and
+                // the nested closing tags. Remove from the last </div> that closes
+                // #body_content outward.
+                $inner = preg_replace( '/<\/div>\s*<\/td>\s*<\/tr>\s*<\/table>\s*<\/td>\s*<\/tr>.*$/si', '', $inner );
+                return trim( $inner );
+            }
+        }
+
+        // 3. Fallback: remove known WC wrapper elements by ID.
+        // Remove the template_header_image div (contains the logo).
+        $content = preg_replace( '/<div[^>]*id\s*=\s*["\']template_header_image["\'][^>]*>.*?<\/div>/si', '', $content );
+        // Remove the template_header / header_wrapper table.
+        $content = preg_replace( '/<table[^>]*id\s*=\s*["\']template_header["\'].*?<\/table>/si', '', $content );
+        // Remove the template_footer table.
+        $content = preg_replace( '/<table[^>]*id\s*=\s*["\']template_footer["\'].*?<\/table>/si', '', $content );
+        // Remove the outer #wrapper div wrapper.
+        $content = preg_replace( '/^<div[^>]*id\s*=\s*["\']wrapper["\'][^>]*>/si', '', $content );
+        $content = preg_replace( '/<\/div>\s*$/si', '', $content );
+
+        return trim( $content );
     }
 
     public function register_post_type() {
