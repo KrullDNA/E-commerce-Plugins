@@ -64,33 +64,33 @@ class KDNA_Email_Builder {
         // WooCommerce email integration.
         add_filter( 'woocommerce_mail_content', [ $this, 'wrap_woo_email' ] );
 
-        // Override WooCommerce email header/footer templates with minimal versions
-        // when a custom KDNA template is active.
-        add_filter( 'woocommerce_locate_template', [ $this, 'override_woo_email_templates' ], 10, 3 );
+        // Remove WooCommerce's default email header/footer rendering when a
+        // custom KDNA template is active, so we don't get double headers/footers.
+        add_action( 'woocommerce_init', [ $this, 'maybe_unhook_woo_email_header_footer' ] );
     }
 
     /**
-     * Redirect WooCommerce email-header.php and email-footer.php to minimal
-     * versions so the custom KDNA template provides the wrapper instead.
+     * If a KDNA email template is active, remove WooCommerce's default
+     * email_header() and email_footer() actions and replace them with
+     * minimal versions that output only a bare HTML shell.
      */
-    public function override_woo_email_templates( $template, $template_name, $template_path ) {
-        if ( ! in_array( $template_name, [ 'emails/email-header.php', 'emails/email-footer.php' ], true ) ) {
-            return $template;
-        }
-
+    public function maybe_unhook_woo_email_header_footer() {
         $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
         if ( ! $template_id ) {
-            return $template;
+            return;
         }
 
-        $override_dir = KDNA_ECOMMERCE_PATH . 'includes/email-builder/woo-overrides/';
-        $override_file = $override_dir . basename( $template_name );
+        $mailer = WC()->mailer();
+        remove_action( 'woocommerce_email_header', [ $mailer, 'email_header' ] );
+        remove_action( 'woocommerce_email_footer', [ $mailer, 'email_footer' ] );
 
-        if ( file_exists( $override_file ) ) {
-            return $override_file;
-        }
-
-        return $template;
+        // Add minimal replacements so the email still has valid HTML structure.
+        add_action( 'woocommerce_email_header', function ( $email_heading ) {
+            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>';
+        } );
+        add_action( 'woocommerce_email_footer', function () {
+            echo '</body></html>';
+        } );
     }
 
     /**
@@ -101,12 +101,6 @@ class KDNA_Email_Builder {
      * contain a {woo_email_content} placeholder (via the WooCommerce Content block).
      */
     public function wrap_woo_email( $html ) {
-        // Prevent re-entrant wrapping.
-        static $wrapping = false;
-        if ( $wrapping ) {
-            return $html;
-        }
-
         $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
         if ( ! $template_id ) {
             return $html;
@@ -137,10 +131,13 @@ class KDNA_Email_Builder {
             return $html;
         }
 
-        $wrapping = true;
-
-        // Extract the inner email content, stripping WooCommerce's wrapper.
-        $body_content = self::strip_woo_wrapper( $html );
+        // Extract only the <body> content. Since we removed WC's email_header
+        // and email_footer actions, the body should contain just the raw email
+        // content without any WC wrapper chrome.
+        $body_content = $html;
+        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $matches ) ) {
+            $body_content = trim( $matches[1] );
+        }
 
         $compiled = self::compile_to_html( $structure, [
             'woo_email_content' => $body_content,
@@ -150,52 +147,7 @@ class KDNA_Email_Builder {
             'unsubscribe_url'   => '#',
         ] );
 
-        $wrapping = false;
-
         return $compiled;
-    }
-
-    /**
-     * Strip WooCommerce's default email wrapper (header image, header, footer,
-     * outer tables) and return only the inner email content.
-     */
-    private static function strip_woo_wrapper( $html ) {
-        // 1. Extract <body> content.
-        $content = $html;
-        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $m ) ) {
-            $content = trim( $m[1] );
-        }
-
-        // 2. If WC's #body_content_inner exists, extract just its content.
-        //    This is the innermost wrapper that holds the actual email text.
-        if ( preg_match( '/id\s*=\s*["\']body_content_inner["\'][^>]*>/si', $content ) ) {
-            // Get everything after the opening tag of #body_content_inner.
-            $parts = preg_split( '/id\s*=\s*["\']body_content_inner["\'][^>]*>/si', $content, 2 );
-            if ( isset( $parts[1] ) ) {
-                $inner = $parts[1];
-                // Remove the closing </td></tr></table> chains that belong to the
-                // WC wrapper (body_content, template_body, template_container, etc.)
-                // and everything after (footer, closing wrapper divs/tables).
-                // Count backwards from the end: we need to strip the WC footer and
-                // the nested closing tags. Remove from the last </div> that closes
-                // #body_content outward.
-                $inner = preg_replace( '/<\/div>\s*<\/td>\s*<\/tr>\s*<\/table>\s*<\/td>\s*<\/tr>.*$/si', '', $inner );
-                return trim( $inner );
-            }
-        }
-
-        // 3. Fallback: remove known WC wrapper elements by ID.
-        // Remove the template_header_image div (contains the logo).
-        $content = preg_replace( '/<div[^>]*id\s*=\s*["\']template_header_image["\'][^>]*>.*?<\/div>/si', '', $content );
-        // Remove the template_header / header_wrapper table.
-        $content = preg_replace( '/<table[^>]*id\s*=\s*["\']template_header["\'].*?<\/table>/si', '', $content );
-        // Remove the template_footer table.
-        $content = preg_replace( '/<table[^>]*id\s*=\s*["\']template_footer["\'].*?<\/table>/si', '', $content );
-        // Remove the outer #wrapper div wrapper.
-        $content = preg_replace( '/^<div[^>]*id\s*=\s*["\']wrapper["\'][^>]*>/si', '', $content );
-        $content = preg_replace( '/<\/div>\s*$/si', '', $content );
-
-        return trim( $content );
     }
 
     public function register_post_type() {
