@@ -155,7 +155,6 @@
 
 .kdna-etb-email-frame {
     width: 100%;
-    max-width: 600px;
     background: #fff;
     border: 1px solid #c3c4c7;
     border-radius: 4px;
@@ -373,7 +372,6 @@
 }
 
 /* Mobile preview */
-.kdna-etb-canvas.mobile-preview .kdna-etb-email-frame,
 .kdna-etb-canvas.mobile-preview .kdna-etb-preview-frame {
     max-width: 375px;
 }
