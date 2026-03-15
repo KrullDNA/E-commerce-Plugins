@@ -139,7 +139,7 @@
     border-radius: 4px;
     margin-bottom: 20px;
     width: 100%;
-    max-width: 660px;
+    max-width: 600px;
     box-sizing: border-box;
 }
 
@@ -155,7 +155,7 @@
 
 .kdna-etb-email-frame {
     width: 100%;
-    max-width: 660px;
+    max-width: 600px;
     background: #fff;
     border: 1px solid #c3c4c7;
     border-radius: 4px;
@@ -362,7 +362,7 @@
 /* Preview Mode */
 .kdna-etb-preview-frame {
     width: 100%;
-    max-width: 660px;
+    max-width: 600px;
     min-height: 500px;
     border: 1px solid #c3c4c7;
     border-radius: 4px;

@@ -105,7 +105,7 @@
             html += '</div>';
 
             // Email Frame
-            html += '<div class="kdna-etb-email-frame" style="max-width:' + (parseInt(this.structure.settings.width) + 60) + 'px;">';
+            html += '<div class="kdna-etb-email-frame" style="max-width:' + parseInt(this.structure.settings.width) + 'px;">';
             html += '<div class="kdna-etb-email-body" style="background:' + (this.structure.settings.content_bg_color || '#fff') + ';padding:' + (this.structure.settings.padding || '0px') + ';">';
             html += this.renderRows();
             html += '</div></div>';
@@ -777,7 +777,7 @@
                 'background': this.structure.settings.content_bg_color || '#fff',
                 'padding': this.structure.settings.padding || '0px'
             });
-            frame.css('max-width', (parseInt(this.structure.settings.width) + 60) + 'px');
+            frame.css('max-width', parseInt(this.structure.settings.width) + 'px');
             this.initSortable();
 
             // Re-highlight currently selected block if still valid.
