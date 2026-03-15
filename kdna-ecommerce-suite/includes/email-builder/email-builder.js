@@ -776,13 +776,52 @@
             var frame = this.el.find('.kdna-etb-email-frame');
             var body = frame.find('.kdna-etb-email-body');
             body.html(this.renderRows());
+            var bodyPadVal = this.structure.settings.padding || '0px';
             body.css({
                 'background': this.structure.settings.content_bg_color || '#fff',
-                'padding': this.structure.settings.padding || '0px'
+                'padding': bodyPadVal
             });
-            frame.css('max-width', parseInt(this.structure.settings.width) + 'px');
+            var frameMaxW = parseInt(this.structure.settings.width) + 'px';
+            frame.css('max-width', frameMaxW);
             this.applyFullbleedMargins();
             this.initSortable();
+
+            // --- DEBUG ---
+            console.group('ETB refreshCanvas DEBUG');
+            console.log('settings.width:', this.structure.settings.width);
+            console.log('settings.padding:', this.structure.settings.padding, '→ applied as:', bodyPadVal);
+            console.log('frame max-width set to:', frameMaxW);
+            console.log('frame actual width:', frame[0].offsetWidth, 'computed:', window.getComputedStyle(frame[0]).width);
+            console.log('body actual width:', body[0].offsetWidth, 'computed:', window.getComputedStyle(body[0]).width);
+            console.log('body computed padding:', window.getComputedStyle(body[0]).padding);
+            var $fb = this.el.find('.kdna-etb-row-fullbleed');
+            console.log('fullbleed rows found:', $fb.length);
+            $fb.each(function (i) {
+                var cs = window.getComputedStyle(this);
+                console.log('  fullbleed row ' + i + ':', {
+                    offsetWidth: this.offsetWidth,
+                    computedWidth: cs.width,
+                    marginLeft: cs.marginLeft,
+                    marginRight: cs.marginRight,
+                    classList: this.className
+                });
+                var inner = this.querySelector('.kdna-etb-blankrow-inner');
+                if (inner) {
+                    var ics = window.getComputedStyle(inner);
+                    console.log('  blankrow-inner ' + i + ':', {
+                        offsetWidth: inner.offsetWidth,
+                        computedWidth: ics.width,
+                        styleWidth: inner.style.width,
+                        height: ics.height
+                    });
+                }
+            });
+            this.el.find('.kdna-etb-row').each(function (i) {
+                var cs = window.getComputedStyle(this);
+                console.log('row ' + i + ' classes:', this.className, 'offsetWidth:', this.offsetWidth, 'border:', cs.border, 'margin:', cs.margin);
+            });
+            console.groupEnd();
+            // --- END DEBUG ---
 
             // Re-highlight currently selected block if still valid.
             if (this.selectedRow !== null && this.structure.rows[this.selectedRow] && this.structure.rows[this.selectedRow].blocks[this.selectedBlock]) {
