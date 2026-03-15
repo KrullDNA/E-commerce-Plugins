@@ -273,6 +273,17 @@ class KDNA_Email_Builder {
     }
 
     /**
+     * Escape a value for use inside a CSS style block.
+     * Unlike esc_attr(), this preserves single quotes (needed for font-family)
+     * while stripping characters that could break out of a style context.
+     */
+    private static function esc_css( $value ) {
+        $value = str_replace( [ '<', '>', '&' ], '', $value );
+        $value = preg_replace( '/[;\{\}]/', '', $value );
+        return $value;
+    }
+
+    /**
      * Compile template JSON structure to email-safe HTML.
      */
     public static function compile_to_html( $structure, $variables = [] ) {
@@ -296,8 +307,8 @@ class KDNA_Email_Builder {
         $preheader   = $s['preheader'] ?? '';
 
         $html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">';
-        $html .= '<style>body{margin:0;padding:0;background:' . esc_attr( $bg ) . ';font-family:' . esc_attr( $font_family ) . ';font-size:' . esc_attr( $font_size ) . ';line-height:' . esc_attr( $line_height ) . ';color:' . esc_attr( $text_color ) . ';}';
-        $html .= 'a{color:' . esc_attr( $link_color ) . ';}';
+        $html .= '<style>body{margin:0;padding:0;background:' . self::esc_css( $bg ) . ';font-family:' . self::esc_css( $font_family ) . ';font-size:' . self::esc_css( $font_size ) . ';line-height:' . self::esc_css( $line_height ) . ';color:' . self::esc_css( $text_color ) . ';}';
+        $html .= 'a{color:' . self::esc_css( $link_color ) . ';}';
         $html .= 'img{max-width:100%;height:auto;}';
         $html .= 'table{border-collapse:collapse;}';
         $html .= '.email-row{width:100%;}';
@@ -311,8 +322,9 @@ class KDNA_Email_Builder {
             $html .= '<div style="display:none;font-size:1px;color:' . esc_attr( $bg ) . ';line-height:1px;max-height:0;max-width:0;opacity:0;overflow:hidden;">' . esc_html( $preheader ) . '</div>';
         }
 
+        $font_style = 'font-family:' . $font_family . ';font-size:' . esc_attr( $font_size ) . ';line-height:' . esc_attr( $line_height ) . ';color:' . esc_attr( $text_color ) . ';';
         $html .= '<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:' . esc_attr( $bg ) . ';">';
-        $html .= '<tr><td align="center" style="padding:' . esc_attr( $padding ) . ';">';
+        $html .= '<tr><td align="center" style="padding:' . esc_attr( $padding ) . ';' . $font_style . '">';
         $html .= '<table width="' . intval( $width ) . '" cellpadding="0" cellspacing="0" role="presentation" style="background:' . esc_attr( $content_bg ) . ';border-radius:' . esc_attr( $s['border_radius'] ?? '0px' ) . ';overflow:hidden;max-width:100%;">';
 
         foreach ( ( $structure['rows'] ?? [] ) as $row_index => $row ) {
