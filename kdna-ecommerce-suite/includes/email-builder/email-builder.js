@@ -934,7 +934,11 @@
                 'background': this.structure.settings.content_bg_color || '#fff',
                 'padding': this.structure.settings.padding || '0px'
             });
-            frame.css('max-width', parseInt(this.structure.settings.width) + 'px');
+            if (this.currentDevice === 'mobile') {
+                frame.css('max-width', '375px');
+            } else {
+                frame.css('max-width', parseInt(this.structure.settings.width) + 'px');
+            }
             this.applyFullbleedMargins();
             this.initSortable();
 
