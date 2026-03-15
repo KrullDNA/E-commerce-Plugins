@@ -61,50 +61,17 @@ class KDNA_Email_Builder {
         add_action( 'wp_ajax_kdna_email_builder_duplicate', [ $this, 'ajax_duplicate' ] );
         add_action( 'wp_ajax_kdna_email_builder_upload_image', [ $this, 'ajax_upload_image' ] );
 
-        // WooCommerce email integration.
+        // WooCommerce email integration — wrap sent emails with KDNA template.
         add_filter( 'woocommerce_mail_content', [ $this, 'wrap_woo_email' ] );
-
-        // Override WC's email-header.php and email-footer.php templates with
-        // minimal versions when a KDNA email template is active. This prevents
-        // WC's styled header/footer from rendering, since the KDNA template
-        // provides its own header, logo, and footer via the builder.
-        add_filter( 'woocommerce_locate_template', [ $this, 'override_woo_email_templates' ], 10, 2 );
-    }
-
-    /**
-     * Point WooCommerce to our minimal email-header.php / email-footer.php
-     * templates so WC's default styled header and footer are never rendered.
-     *
-     * @param string $template      Full path to the located template.
-     * @param string $template_name Template name (e.g. "emails/email-header.php").
-     * @return string
-     */
-    public function override_woo_email_templates( $template, $template_name ) {
-        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
-            return $template;
-        }
-
-        $overrides = [
-            'emails/email-header.php' => 'email-header.php',
-            'emails/email-footer.php' => 'email-footer.php',
-        ];
-
-        if ( isset( $overrides[ $template_name ] ) ) {
-            $override = __DIR__ . '/woo-overrides/' . $overrides[ $template_name ];
-            if ( file_exists( $override ) ) {
-                return $override;
-            }
-        }
-
-        return $template;
     }
 
     /**
      * Wrap WooCommerce transactional email content with a builder template.
      *
-     * Hooks into woocommerce_mail_content to replace WooCommerce's default
-     * header/footer with the selected builder template. The template must
-     * contain a {woo_email_content} placeholder (via the WooCommerce Content block).
+     * Hooks into woocommerce_mail_content (fires only when WC sends an email,
+     * not during admin preview). Extracts the actual order content from WC's
+     * fully rendered email HTML by targeting WC's known DOM structure, then
+     * compiles the KDNA template with that content as {woo_email_content}.
      */
     public function wrap_woo_email( $html ) {
         $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
@@ -137,13 +104,9 @@ class KDNA_Email_Builder {
             return $html;
         }
 
-        // Extract only the <body> content. Our template overrides replace WC's
-        // styled header/footer with a minimal HTML shell, so the body contains
-        // just the email heading and order content.
-        $body_content = $html;
-        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $matches ) ) {
-            $body_content = trim( $matches[1] );
-        }
+        // Extract just the order content from WC's rendered email, stripping
+        // WC's own header (logo, heading bar) and footer (credit line).
+        $body_content = self::extract_woo_content( $html );
 
         $compiled = self::compile_to_html( $structure, [
             'woo_email_content' => $body_content,
@@ -154,6 +117,51 @@ class KDNA_Email_Builder {
         ] );
 
         return $compiled;
+    }
+
+    /**
+     * Extract the actual email content from WooCommerce's fully rendered HTML,
+     * stripping WC's header (logo, styled heading bar) and footer (credit).
+     *
+     * Targets WC's known HTML IDs in order of specificity:
+     *  1. #body_content_inner — the inner content div (most precise)
+     *  2. #body_content       — the content table cell
+     *  3. <body> extraction   — fallback
+     *
+     * @param string $html Full WC email HTML.
+     * @return string Extracted content.
+     */
+    private static function extract_woo_content( $html ) {
+        // 1. Try #body_content_inner — WC wraps the actual email content here.
+        if ( preg_match( '/<div[^>]+id=["\']body_content_inner["\'][^>]*>(.*?)<\/div>\s*<\/td>/si', $html, $m ) ) {
+            return trim( $m[1] );
+        }
+
+        // 2. Try #body_content td — slightly broader.
+        if ( preg_match( '/<td[^>]+id=["\']body_content["\'][^>]*>(.*?)<\/td>/si', $html, $m ) ) {
+            return trim( $m[1] );
+        }
+
+        // 3. Try stripping the WC wrapper: everything inside #wrapper but
+        //    excluding #template_header_image, #template_header, and #credit.
+        if ( preg_match( '/<div[^>]+id=["\']wrapper["\'][^>]*>(.*)<\/div>/si', $html, $m ) ) {
+            $inner = $m[1];
+            // Remove header image (logo).
+            $inner = preg_replace( '/<div[^>]+id=["\']template_header_image["\'][^>]*>.*?<\/div>/si', '', $inner );
+            // Remove styled header bar.
+            $inner = preg_replace( '/<table[^>]+id=["\']template_header["\'][^>]*>.*?<\/table>/si', '', $inner );
+            // Remove credit/footer.
+            $inner = preg_replace( '/<div[^>]+id=["\']credit["\'][^>]*>.*?<\/div>/si', '', $inner );
+            $inner = preg_replace( '/<table[^>]+id=["\']template_footer["\'][^>]*>.*?<\/table>/si', '', $inner );
+            return trim( $inner );
+        }
+
+        // 4. Last resort: extract <body> content.
+        if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $m ) ) {
+            return trim( $m[1] );
+        }
+
+        return $html;
     }
 
     public function register_post_type() {
