@@ -313,9 +313,12 @@ class KDNA_Email_Builder {
         $html .= 'table{border-collapse:collapse;}';
         $html .= '.email-row{width:100%;}';
         $mobile_css = self::collect_mobile_css( $structure );
-        if ( $mobile_css ) {
-            $html .= '@media only screen and (max-width:480px){' . $mobile_css . '}';
-        }
+        $html .= '@media only screen and (max-width:480px){';
+        $html .= '.email-content{width:100% !important;}';
+        $html .= '.email-content td{display:block !important;width:100% !important;}';
+        $html .= 'img{max-width:100% !important;height:auto !important;}';
+        $html .= $mobile_css;
+        $html .= '}';
         $html .= '</style></head><body>';
 
         if ( $preheader ) {
@@ -325,7 +328,7 @@ class KDNA_Email_Builder {
         $font_style = 'font-family:' . $font_family . ';font-size:' . esc_attr( $font_size ) . ';line-height:' . esc_attr( $line_height ) . ';color:' . esc_attr( $text_color ) . ';';
         $html .= '<table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="background:' . esc_attr( $bg ) . ';">';
         $html .= '<tr><td align="center" style="padding:' . esc_attr( $padding ) . ';' . $font_style . '">';
-        $html .= '<table width="' . intval( $width ) . '" cellpadding="0" cellspacing="0" role="presentation" style="background:' . esc_attr( $content_bg ) . ';border-radius:' . esc_attr( $s['border_radius'] ?? '0px' ) . ';overflow:hidden;max-width:100%;">';
+        $html .= '<table class="email-content" cellpadding="0" cellspacing="0" role="presentation" style="width:100%;max-width:' . intval( $width ) . 'px;background:' . esc_attr( $content_bg ) . ';border-radius:' . esc_attr( $s['border_radius'] ?? '0px' ) . ';overflow:hidden;">';
 
         foreach ( ( $structure['rows'] ?? [] ) as $row_index => $row ) {
             $html .= self::compile_row( $row, $s, $row_index );
@@ -387,7 +390,7 @@ class KDNA_Email_Builder {
 
             case 'image':
                 $align = $p['text_align'] ?? 'center';
-                $img   = '<img src="' . esc_url( $p['src'] ?? '' ) . '" alt="' . esc_attr( $p['alt'] ?? '' ) . '" style="width:' . esc_attr( $p['width'] ?? '100%' ) . ';display:inline-block;" />';
+                $img   = '<img src="' . esc_url( $p['src'] ?? '' ) . '" alt="' . esc_attr( $p['alt'] ?? '' ) . '" style="width:' . esc_attr( $p['width'] ?? '100%' ) . ';max-width:100%;height:auto;display:inline-block;" />';
                 if ( ! empty( $p['href'] ) ) {
                     $img = '<a href="' . esc_url( $p['href'] ) . '">' . $img . '</a>';
                 }
@@ -464,7 +467,7 @@ class KDNA_Email_Builder {
 
             case 'logo':
                 $align = $p['text_align'] ?? 'center';
-                $img   = '<img src="' . esc_url( $p['src'] ?? '' ) . '" alt="Logo" style="width:' . esc_attr( $p['width'] ?? '150px' ) . ';" />';
+                $img   = '<img src="' . esc_url( $p['src'] ?? '' ) . '" alt="Logo" style="width:' . esc_attr( $p['width'] ?? '150px' ) . ';max-width:100%;height:auto;" />';
                 if ( ! empty( $p['href'] ) ) {
                     $img = '<a href="' . esc_url( $p['href'] ) . '">' . $img . '</a>';
                 }
