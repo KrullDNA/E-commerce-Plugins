@@ -190,6 +190,8 @@
 .kdna-etb-drop-zone.has-blocks {
     border: none;
     min-height: auto;
+    flex-direction: column;
+    align-items: stretch;
 }
 
 /* Row in Canvas */
