@@ -268,6 +268,14 @@
                     html += '<small style="color:#666;">Personalised email body content<br>(Hi {customer_first_name}, ...)</small>';
                     html += '</div></div>';
                     break;
+                case 'woo_content':
+                    html += '<div style="padding:' + (p.padding || '10px 20px') + ';border:1px dashed #9b59b6;border-radius:4px;background:#f5f0ff;">';
+                    html += '<div style="text-align:center;padding:15px 10px;">';
+                    html += '<span class="dashicons dashicons-cart" style="font-size:28px;color:#9b59b6;"></span>';
+                    html += '<p style="margin:8px 0 4px;font-weight:600;color:#333;">WooCommerce Email Content</p>';
+                    html += '<small style="color:#666;">Order details, items table, addresses, etc.<br>Rendered by WooCommerce at send time</small>';
+                    html += '</div></div>';
+                    break;
                 default:
                     html += '<div style="padding:10px 20px;color:#999;">Unknown block: ' + type + '</div>';
             }
@@ -456,6 +464,10 @@
                     html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
                     html += '<p class="description" style="margin-top:8px;">This block inserts the personalised email body content that is written when creating a follow-up email (e.g. Hi {customer_first_name}, ...).</p>';
                     break;
+                case 'woo_content':
+                    html += this.field('text', 'padding', 'Padding', p.padding || '10px 20px');
+                    html += '<p class="description" style="margin-top:8px;">This block inserts WooCommerce email content (order details, items table, customer addresses, etc.). Use this when applying the template to WooCommerce transactional emails.</p>';
+                    break;
                 default:
                     html += '<p>No settings available for this block type.</p>';
             }
@@ -628,6 +640,9 @@
                     html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '0px');
                     break;
                 case 'content':
+                    html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
+                    break;
+                case 'woo_content':
                     html += this.mobileField('text', 'padding', 'Padding', m.padding, p.padding || '10px 20px');
                     break;
                 default:
