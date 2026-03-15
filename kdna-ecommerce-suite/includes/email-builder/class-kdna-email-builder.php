@@ -755,6 +755,15 @@ class KDNA_Email_Builder {
         $compiled = self::compile_to_html( $decoded );
         update_post_meta( $template_id, '_kdna_email_compiled_html', $compiled );
 
+        // WooCommerce email template toggle.
+        $use_for_woo = sanitize_text_field( $_POST['use_for_woo'] ?? '0' );
+        if ( $use_for_woo === '1' ) {
+            update_option( 'kdna_woo_email_template_id', $template_id );
+        } elseif ( (int) get_option( 'kdna_woo_email_template_id', 0 ) === $template_id ) {
+            // Unchecked and this was the active WooCommerce template — clear it.
+            update_option( 'kdna_woo_email_template_id', 0 );
+        }
+
         wp_send_json_success( [
             'template_id' => $template_id,
             'message'     => __( 'Template saved.', 'kdna-ecommerce' ),
@@ -1075,6 +1084,7 @@ class KDNA_Email_Builder {
         ?>
         <h1><?php echo $template_id ? esc_html__( 'Edit Email Template', 'kdna-ecommerce' ) : esc_html__( 'New Email Template', 'kdna-ecommerce' ); ?></h1>
 
+        <?php $is_woo_template = ( (int) get_option( 'kdna_woo_email_template_id', 0 ) === $template_id && $template_id > 0 ); ?>
         <div id="kdna-email-builder"
              data-nonce="<?php echo esc_attr( wp_create_nonce( self::NONCE_ACTION ) ); ?>"
              data-template-id="<?php echo esc_attr( $template_id ); ?>"
@@ -1082,7 +1092,8 @@ class KDNA_Email_Builder {
              data-json="<?php echo esc_attr( $json_data ); ?>"
              data-css="<?php echo esc_attr( $css ); ?>"
              data-blocks="<?php echo esc_attr( wp_json_encode( self::get_block_definitions() ) ); ?>"
-             data-ajax-url="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>">
+             data-ajax-url="<?php echo esc_attr( admin_url( 'admin-ajax.php' ) ); ?>"
+             data-woo-template="<?php echo $is_woo_template ? '1' : '0'; ?>">
 
             <!-- Builder UI rendered by JS -->
             <div class="kdna-etb-loading">

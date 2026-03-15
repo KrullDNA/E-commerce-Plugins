@@ -97,6 +97,7 @@
             // Toolbar
             html += '<div class="kdna-etb-toolbar">';
             html += '<input type="text" class="kdna-etb-name" value="' + this.escAttr(this.el.data('template-name') || 'Untitled Template') + '" placeholder="Template name" />';
+            html += '<label class="kdna-etb-woo-toggle" title="Use this template for all WooCommerce transactional emails"><input type="checkbox" class="kdna-etb-woo-checkbox"' + (this.el.data('woo-template') == '1' ? ' checked' : '') + ' /> <span class="dashicons dashicons-cart"></span> WooCommerce</label>';
             html += '<div class="kdna-etb-device-toggle">';
             html += '<button class="kdna-etb-device-btn active" data-device="desktop" title="Desktop"><span class="dashicons dashicons-desktop"></span></button>';
             html += '<button class="kdna-etb-device-btn" data-device="mobile" title="Mobile"><span class="dashicons dashicons-smartphone"></span></button>';
@@ -877,7 +878,8 @@
                     template_id: self.templateId,
                     name: self.el.find('.kdna-etb-name').val(),
                     json: JSON.stringify(self.structure),
-                    custom_css: ''
+                    custom_css: '',
+                    use_for_woo: self.el.find('.kdna-etb-woo-checkbox').is(':checked') ? '1' : '0'
                 }, function (resp) {
                     btn.prop('disabled', false).text('Save');
                     if (resp.success) {
