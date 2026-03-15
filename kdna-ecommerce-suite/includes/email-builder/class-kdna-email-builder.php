@@ -64,33 +64,61 @@ class KDNA_Email_Builder {
         // WooCommerce email integration.
         add_filter( 'woocommerce_mail_content', [ $this, 'wrap_woo_email' ] );
 
-        // Remove WooCommerce's default email header/footer rendering when a
-        // custom KDNA template is active, so we don't get double headers/footers.
-        add_action( 'woocommerce_init', [ $this, 'maybe_unhook_woo_email_header_footer' ] );
+        // Intercept WooCommerce's email header/footer rendering when a custom
+        // KDNA template is active. Uses output buffering to capture and discard
+        // WC's styled header/footer, replacing them with a minimal HTML shell.
+        // This approach is more robust than remove_action because WC may re-hook
+        // its email_header/email_footer callbacks after they are removed.
+        add_action( 'woocommerce_email_header', [ $this, 'ob_start_woo_header' ], 1 );
+        add_action( 'woocommerce_email_header', [ $this, 'ob_end_woo_header' ], 999, 2 );
+        add_action( 'woocommerce_email_footer', [ $this, 'ob_start_woo_footer' ], 1 );
+        add_action( 'woocommerce_email_footer', [ $this, 'ob_end_woo_footer' ], 999 );
     }
 
     /**
-     * If a KDNA email template is active, remove WooCommerce's default
-     * email_header() and email_footer() actions and replace them with
-     * minimal versions that output only a bare HTML shell.
+     * Start capturing WooCommerce's email header output so we can discard it.
      */
-    public function maybe_unhook_woo_email_header_footer() {
-        $template_id = (int) get_option( 'kdna_woo_email_template_id', 0 );
-        if ( ! $template_id ) {
+    public function ob_start_woo_header() {
+        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
             return;
         }
+        ob_start();
+    }
 
-        $mailer = WC()->mailer();
-        remove_action( 'woocommerce_email_header', [ $mailer, 'email_header' ] );
-        remove_action( 'woocommerce_email_footer', [ $mailer, 'email_footer' ] );
+    /**
+     * Discard WooCommerce's email header and output a minimal HTML shell
+     * that preserves the email heading (e.g. "Thank you for your order").
+     */
+    public function ob_end_woo_header( $email_heading = '', $email = null ) {
+        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
+            return;
+        }
+        ob_end_clean();
+        echo '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>';
+        if ( $email_heading ) {
+            echo '<h1 style="font-size:30px;font-weight:300;line-height:1.2;margin:0 0 16px;">' . wp_kses_post( $email_heading ) . '</h1>';
+        }
+    }
 
-        // Add minimal replacements so the email still has valid HTML structure.
-        add_action( 'woocommerce_email_header', function ( $email_heading ) {
-            echo '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>';
-        } );
-        add_action( 'woocommerce_email_footer', function () {
-            echo '</body></html>';
-        } );
+    /**
+     * Start capturing WooCommerce's email footer output so we can discard it.
+     */
+    public function ob_start_woo_footer() {
+        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
+            return;
+        }
+        ob_start();
+    }
+
+    /**
+     * Discard WooCommerce's email footer and output minimal closing tags.
+     */
+    public function ob_end_woo_footer() {
+        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
+            return;
+        }
+        ob_end_clean();
+        echo '</body></html>';
     }
 
     /**
