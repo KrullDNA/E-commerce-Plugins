@@ -654,6 +654,12 @@
             // Block drag
             this.el.on('dragstart', '.kdna-etb-block-item', function (e) {
                 e.originalEvent.dataTransfer.setData('block-type', $(this).data('type'));
+                self._dragging = true;
+            });
+
+            this.el.on('dragend', '.kdna-etb-block-item', function () {
+                // Delay reset so the click event that follows dragend is still suppressed.
+                setTimeout(function () { self._dragging = false; }, 50);
             });
 
             // Drop zone
@@ -693,6 +699,7 @@
 
             // Click on a block palette item — add it to the canvas (fallback for non-drag interactions).
             this.el.on('click', '.kdna-etb-block-item', function () {
+                if (self._dragging) return;
                 var type = $(this).data('type');
                 if (!type) return;
                 var defaults = self.blocks[type] ? self.blocks[type].defaults : {};
@@ -939,7 +946,7 @@
             if (this.currentDevice === 'mobile') {
                 frame.css('max-width', '375px');
             } else {
-                frame.css('max-width', parseInt(this.structure.settings.width) + 'px');
+                frame.css('max-width', (parseInt(this.structure.settings.width) + 60) + 'px');
             }
             this.applyFullbleedMargins();
             this.initSortable();
