@@ -64,61 +64,39 @@ class KDNA_Email_Builder {
         // WooCommerce email integration.
         add_filter( 'woocommerce_mail_content', [ $this, 'wrap_woo_email' ] );
 
-        // Intercept WooCommerce's email header/footer rendering when a custom
-        // KDNA template is active. Uses output buffering to capture and discard
-        // WC's styled header/footer, replacing them with a minimal HTML shell.
-        // This approach is more robust than remove_action because WC may re-hook
-        // its email_header/email_footer callbacks after they are removed.
-        add_action( 'woocommerce_email_header', [ $this, 'ob_start_woo_header' ], 1 );
-        add_action( 'woocommerce_email_header', [ $this, 'ob_end_woo_header' ], 999, 2 );
-        add_action( 'woocommerce_email_footer', [ $this, 'ob_start_woo_footer' ], 1 );
-        add_action( 'woocommerce_email_footer', [ $this, 'ob_end_woo_footer' ], 999 );
+        // Override WC's email-header.php and email-footer.php templates with
+        // minimal versions when a KDNA email template is active. This prevents
+        // WC's styled header/footer from rendering, since the KDNA template
+        // provides its own header, logo, and footer via the builder.
+        add_filter( 'woocommerce_locate_template', [ $this, 'override_woo_email_templates' ], 10, 2 );
     }
 
     /**
-     * Start capturing WooCommerce's email header output so we can discard it.
+     * Point WooCommerce to our minimal email-header.php / email-footer.php
+     * templates so WC's default styled header and footer are never rendered.
+     *
+     * @param string $template      Full path to the located template.
+     * @param string $template_name Template name (e.g. "emails/email-header.php").
+     * @return string
      */
-    public function ob_start_woo_header() {
+    public function override_woo_email_templates( $template, $template_name ) {
         if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
-            return;
+            return $template;
         }
-        ob_start();
-    }
 
-    /**
-     * Discard WooCommerce's email header and output a minimal HTML shell
-     * that preserves the email heading (e.g. "Thank you for your order").
-     */
-    public function ob_end_woo_header( $email_heading = '', $email = null ) {
-        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
-            return;
-        }
-        ob_end_clean();
-        echo '<!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>';
-        if ( $email_heading ) {
-            echo '<h1 style="font-size:30px;font-weight:300;line-height:1.2;margin:0 0 16px;">' . wp_kses_post( $email_heading ) . '</h1>';
-        }
-    }
+        $overrides = [
+            'emails/email-header.php' => 'email-header.php',
+            'emails/email-footer.php' => 'email-footer.php',
+        ];
 
-    /**
-     * Start capturing WooCommerce's email footer output so we can discard it.
-     */
-    public function ob_start_woo_footer() {
-        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
-            return;
+        if ( isset( $overrides[ $template_name ] ) ) {
+            $override = __DIR__ . '/woo-overrides/' . $overrides[ $template_name ];
+            if ( file_exists( $override ) ) {
+                return $override;
+            }
         }
-        ob_start();
-    }
 
-    /**
-     * Discard WooCommerce's email footer and output minimal closing tags.
-     */
-    public function ob_end_woo_footer() {
-        if ( ! (int) get_option( 'kdna_woo_email_template_id', 0 ) ) {
-            return;
-        }
-        ob_end_clean();
-        echo '</body></html>';
+        return $template;
     }
 
     /**
@@ -159,9 +137,9 @@ class KDNA_Email_Builder {
             return $html;
         }
 
-        // Extract only the <body> content. Since we removed WC's email_header
-        // and email_footer actions, the body should contain just the raw email
-        // content without any WC wrapper chrome.
+        // Extract only the <body> content. Our template overrides replace WC's
+        // styled header/footer with a minimal HTML shell, so the body contains
+        // just the email heading and order content.
         $body_content = $html;
         if ( preg_match( '/<body[^>]*>(.*)<\/body>/si', $html, $matches ) ) {
             $body_content = trim( $matches[1] );
