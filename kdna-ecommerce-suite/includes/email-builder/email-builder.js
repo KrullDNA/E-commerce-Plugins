@@ -106,7 +106,7 @@
             html += '</div>';
 
             // Email Frame
-            html += '<div class="kdna-etb-email-frame" style="max-width:' + parseInt(this.structure.settings.width) + 'px;">';
+            html += '<div class="kdna-etb-email-frame" style="max-width:' + (parseInt(this.structure.settings.width) + 60) + 'px;">';
             html += '<div class="kdna-etb-email-body" style="background:' + (this.structure.settings.content_bg_color || '#fff') + ';padding:' + (this.structure.settings.padding || '0px') + ';">';
             html += this.renderRows();
             html += '</div></div>';
@@ -670,6 +670,7 @@
                 $(this).removeClass('drag-over');
             }).on('drop', '.kdna-etb-drop-zone, .kdna-etb-row', function (e) {
                 e.preventDefault();
+                e.stopPropagation();
                 $(this).removeClass('drag-over');
                 var type = e.originalEvent.dataTransfer.getData('block-type');
                 if (type) {
@@ -943,7 +944,9 @@
                 'background': this.structure.settings.content_bg_color || '#fff',
                 'padding': this.structure.settings.padding || '0px'
             });
-            if (this.currentDevice === 'mobile') {
+            var isMobile = this.currentDevice === 'mobile';
+            this.el.find('.kdna-etb-canvas').toggleClass('mobile-preview', isMobile);
+            if (isMobile) {
                 frame.css('max-width', '375px');
             } else {
                 frame.css('max-width', (parseInt(this.structure.settings.width) + 60) + 'px');
